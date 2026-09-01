@@ -36,26 +36,11 @@ codeql pack install \
   --common-caches="$isolated_cache" \
   --mode=use-lock \
   -- "$query_dir"
-
-codeql resolve packs \
-  --no-use-global-qlconfig \
-  --common-caches="$isolated_cache" \
-  --format=json > "$work_dir/resolved-packs.json"
-java_pack=$(python3 - "$work_dir/resolved-packs.json" "$CODEQL_JAVA_ALL_VERSION" <<'PY'
-import json
-import sys
-
-document = json.load(open(sys.argv[1], encoding="utf-8"))
-matches = []
-for step in document.get("steps", []):
-    found = step.get("found", {}).get("codeql/java-all", {}).get(sys.argv[2])
-    if isinstance(found, dict) and isinstance(found.get("path"), str):
-        matches.append(found["path"])
-if len(matches) != 1:
-    raise SystemExit(f"expected one isolated codeql/java-all@{sys.argv[2]}, found {matches}")
-print(matches[0])
-PY
-)
+java_pack="$isolated_cache/packages/codeql/java-all/$CODEQL_JAVA_ALL_VERSION/qlpack.yml"
+if [[ ! -f "$java_pack" ]]; then
+  echo "isolated CodeQL install lacks java-all@$CODEQL_JAVA_ALL_VERSION" >&2
+  exit 2
+fi
 
 python3 "$consumer_dir/generate_model.py" \
   --pack "$scenario_dir/pack" \
