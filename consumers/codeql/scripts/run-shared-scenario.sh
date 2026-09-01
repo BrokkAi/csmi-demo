@@ -22,37 +22,23 @@ fi
 
 "$scenario_dir/scripts/verify.py"
 python3 -m unittest discover -s "$consumer_dir" -p 'test_*.py' -v
-codeql pack download -- "codeql/java-all@$CODEQL_JAVA_ALL_VERSION"
-codeql pack install "$query_dir"
 
 temp_root=${RUNNER_TEMP:-${TMPDIR:-/tmp}}
 work_dir=$(mktemp -d "$temp_root/csmi-codeql-consumer.XXXXXX")
 database_dir="$work_dir/database"
 classes_dir="$work_dir/classes"
 model_dir="$work_dir/model"
+pinned_pack_root="$work_dir/pinned-packs"
 mkdir -p "$classes_dir"
+
+codeql pack download --force --dir="$pinned_pack_root" -- \
+  "codeql/java-all@$CODEQL_JAVA_ALL_VERSION"
+java_pack="$pinned_pack_root/codeql/java-all/$CODEQL_JAVA_ALL_VERSION/qlpack.yml"
 
 python3 "$consumer_dir/generate_model.py" \
   --pack "$scenario_dir/pack" \
   --artifact "$analyzer_root/lib/external-normalize-1.0.0.jar" \
   --output "$model_dir"
-
-codeql resolve packs --format=json > "$work_dir/resolved-packs.json"
-java_pack=$(python3 - "$work_dir/resolved-packs.json" "$CODEQL_JAVA_ALL_VERSION" <<'PY'
-import json
-import sys
-
-document = json.load(open(sys.argv[1], encoding="utf-8"))
-matches = []
-for step in document.get("steps", []):
-    found = step.get("found", {}).get("codeql/java-all", {}).get(sys.argv[2])
-    if isinstance(found, dict) and isinstance(found.get("path"), str):
-        matches.append(found["path"])
-if len(matches) != 1:
-    raise SystemExit(f"expected one resolved codeql/java-all@{sys.argv[2]}, found {matches}")
-print(matches[0])
-PY
-)
 
 (
   cd "$analyzer_root"
@@ -64,10 +50,11 @@ PY
 
 codeql query run "$query_dir/ExternalNormalize.ql" \
   --database="$database_dir" \
+  --additional-packs="$pinned_pack_root" \
   --output="$work_dir/off.bqrs"
 codeql query run "$query_dir/ExternalNormalize.ql" \
   --database="$database_dir" \
-  --additional-packs="$work_dir" \
+  --additional-packs="$pinned_pack_root:$work_dir" \
   --model-packs=brokkai/csmi-external-normalize-model@0.0.0 \
   --output="$work_dir/on.bqrs"
 codeql bqrs decode "$work_dir/off.bqrs" --format=json --output="$work_dir/off.json"

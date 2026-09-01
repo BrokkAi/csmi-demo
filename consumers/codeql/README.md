@@ -15,8 +15,8 @@ Install CodeQL CLI `2.26.4`, use `javac 21.0.8`, then run:
 python3 consumers/codeql/scripts/verify-results.py
 ```
 
-The runner verifies the shared scenario, runs the adapter unit tests, resolves
-the locked `codeql/java-all` `9.2.3` pack (build SHA
+The runner verifies the shared scenario, runs the adapter unit tests, downloads
+the exact `codeql/java-all` `9.2.3` pack into its disposable workspace (build SHA
 `44a68d3a47fcbcd6a6a76ec7d1c1b3a1a28b201e`), and builds one database rooted
 at `analyzer-input`. Its source archive must contain only
 `ScenarioApplication.java`; `audit-source` and `producer` are rejected.
