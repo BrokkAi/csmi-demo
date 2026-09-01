@@ -20,12 +20,15 @@ def identity(name: str) -> dict:
     return {
         "artifactSelectors": SELECTORS,
         "scheme": "ai.brokk.csmi.jvm-symbol",
-        "schemeVersion": "1",
+        "schemeVersion": "0.1",
         "stability": "portable",
         "descriptors": [
-            {"role": "namespace", "name": "ai.brokk.csmi.fixture"},
+            {"role": "namespace", "name": "ai"},
+            {"role": "namespace", "name": "brokk"},
+            {"role": "namespace", "name": "csmi"},
+            {"role": "namespace", "name": "fixture"},
             {"role": "type", "name": "ExternalStrings"},
-            {"role": "callable", "name": name, "disambiguator": "(Ljava/lang/String;)Ljava/lang/String;"},
+            {"role": "callable", "name": name, "disambiguator": "(java.lang.String)->java.lang.String"},
         ],
     }
 

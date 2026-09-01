@@ -33,12 +33,15 @@
           }
         ],
         "scheme": "ai.brokk.csmi.jvm-symbol",
-        "schemeVersion": "1",
+        "schemeVersion": "0.1",
         "stability": "portable",
         "descriptors": [
-          {"role": "namespace", "name": "ai.brokk.csmi.demo"},
+          {"role": "namespace", "name": "ai"},
+          {"role": "namespace", "name": "brokk"},
+          {"role": "namespace", "name": "csmi"},
+          {"role": "namespace", "name": "demo"},
           {"role": "type", "name": "ExternalNormalizer"},
-          {"role": "callable", "name": "constant", "disambiguator": "(Ljava/lang/String;)Ljava/lang/String;"}
+          {"role": "callable", "name": "constant", "disambiguator": "(java.lang.String)->java.lang.String"}
         ]
       },
       "arguments": ["constant.argument"],
@@ -60,12 +63,15 @@
           }
         ],
         "scheme": "ai.brokk.csmi.jvm-symbol",
-        "schemeVersion": "1",
+        "schemeVersion": "0.1",
         "stability": "portable",
         "descriptors": [
-          {"role": "namespace", "name": "ai.brokk.csmi.demo"},
+          {"role": "namespace", "name": "ai"},
+          {"role": "namespace", "name": "brokk"},
+          {"role": "namespace", "name": "csmi"},
+          {"role": "namespace", "name": "demo"},
           {"role": "type", "name": "ExternalNormalizer"},
-          {"role": "callable", "name": "normalize", "disambiguator": "(Ljava/lang/String;)Ljava/lang/String;"}
+          {"role": "callable", "name": "normalize", "disambiguator": "(java.lang.String)->java.lang.String"}
         ]
       },
       "arguments": ["normalize.argument"],
