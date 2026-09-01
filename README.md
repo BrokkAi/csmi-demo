@@ -5,7 +5,8 @@ This repository demonstrates that a consumer can use a
 depending on the producer's internal representation.
 
 > **Status:** the first deterministic fixture, labels, exact Bifrost-generated
-> CSMI pack, and minimal-consumer interoperability results are materialized.
+> CSMI pack, and minimal-consumer interoperability results are materialized;
+> CodeQL consumer integration is in progress.
 
 This is not the CSMI standard and it is not a CSMI SDK. The normative
 specification and schema live in the
@@ -46,7 +47,8 @@ scenarios/
 - [`consumers/`](consumers/) contains one directory per analyzer or adapter.
   The deliberately small [`minimal-dataflow`](consumers/minimal-dataflow/)
   implementation is runnable and retains independent pack-off and pack-on
-  results against the shared scenario.
+  results against the shared scenario. [`codeql`](consumers/codeql/) contains
+  the CodeQL adapter and query integration.
 - [`scenarios/`](scenarios/) contains analyzer-neutral application inputs,
   opaque dependency fixtures, labels, expected outcomes, and retained CSMI
   packs.
@@ -84,7 +86,8 @@ See [`consumers/README.md`](consumers/README.md) and
 Add a consumer only when implementation begins. Give it one directory under
 `consumers/`, document the exact tool version and commands, and consume shared
 scenario assets in place. In particular, this repository does not claim a
-CodeQL integration until a runnable CodeQL consumer is added.
+  completed CodeQL interoperability result until both modes run against a
+  valid producer-generated pack.
 
 Add a scenario under `scenarios/` only when it has a deterministic, pinned
 opaque dependency, auditable labels, a CSMI artifact shared by all consumers,

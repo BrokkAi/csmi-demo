@@ -11,7 +11,6 @@ import argparse
 import hashlib
 import json
 import re
-import shutil
 import sys
 from pathlib import Path, PurePosixPath
 
@@ -21,6 +20,10 @@ MEDIA_TYPE = "application/vnd.csmi.semantic-model.v0.1+json"
 JVM_SCHEME = "ai.brokk.csmi.jvm-symbol"
 JVM_SCHEME_VERSION = "0.1"
 EXPECTED_CALLABLES = {"normalize", "constant"}
+EXPECTED_PURL = "pkg:maven/ai.brokk.csmi-demo/external-normalize@1.0.0"
+EXPECTED_DIGEST_COVERAGE = "jar"
+EXPECTED_PACKAGE = "ai.brokk.csmi.demo"
+EXPECTED_OWNER = "ExternalNormalizer"
 
 
 class Unsupported(ValueError):
@@ -96,13 +99,16 @@ def exact_selector(model: dict, artifact: Path) -> str:
         digests = selector.get("digests", [])
         if any(
             item.get("algorithm") == "sha-256"
-            and item.get("coverage") == "whole-artifact"
+            and item.get("coverage") == EXPECTED_DIGEST_COVERAGE
             and item.get("value") == actual
             for item in digests
         ):
             matched.append(selector.get("purl"))
-    if len(matched) != 1 or not isinstance(matched[0], str) or "@" not in matched[0]:
-        raise Unsupported("artifact must match exactly one versioned whole-artifact selector")
+    if matched != [EXPECTED_PURL]:
+        raise Unsupported(
+            f"artifact must match exactly one {EXPECTED_DIGEST_COVERAGE!r} selector for "
+            f"{EXPECTED_PURL}"
+        )
     return matched[0]
 
 
@@ -189,6 +195,8 @@ def build_rows(document: dict, artifact: Path) -> tuple[str, list, list, list]:
         if symbol_id not in symbols or symbol_id not in declarations:
             raise Unsupported(f"unresolved summary callable: {symbol_id!r}")
         package, owner, name, signature = parse_symbol(symbols[symbol_id])
+        if package != EXPECTED_PACKAGE or owner != EXPECTED_OWNER:
+            raise Unsupported(f"unexpected scenario callable owner: {package}.{owner}")
         if name not in EXPECTED_CALLABLES or name in seen_names:
             raise Unsupported(f"unexpected or duplicate scenario callable: {name!r}")
         seen_names.add(name)
@@ -227,12 +235,25 @@ def build_rows(document: dict, artifact: Path) -> tuple[str, list, list, list]:
                 raise Unsupported("normalize must contain exactly parameter[0] -> result[0]")
             summary_rows.append([package, owner, False, name, signature, "", "Argument[0]", "ReturnValue", "taint", "manual"])
             predicate = "summaryModel"
+            codeql_row = summary_rows[-1]
         else:
             if transfers:
                 raise Unsupported("constant must have a complete empty transfer set")
             neutral_rows.append([package, owner, name, signature, "summary", "manual"])
             predicate = "neutralModel"
-        trace.append({"callable": symbol_id, "csmiName": name, "predicate": predicate})
+            codeql_row = neutral_rows[-1]
+        trace.append(
+            {
+                "callable": symbol_id,
+                "csmi": {
+                    "symbol": symbols[symbol_id],
+                    "declaration": declaration,
+                    "procedureSummary": summary,
+                    "completenessStatement": completeness[symbol_id],
+                },
+                "codeql": {"predicate": predicate, "row": codeql_row},
+            }
+        )
     if seen_names != EXPECTED_CALLABLES:
         raise Unsupported(f"missing scenario callables: {sorted(EXPECTED_CALLABLES - seen_names)}")
     return purl, summary_rows, neutral_rows, trace
@@ -240,7 +261,7 @@ def build_rows(document: dict, artifact: Path) -> tuple[str, list, list, list]:
 
 def write_output(output: Path, purl: str, summaries: list, neutrals: list, trace: list, artifact: Path, document: Path) -> None:
     if output.exists():
-        shutil.rmtree(output)
+        raise Unsupported(f"refusing to overwrite existing output path: {output}")
     output.mkdir(parents=True)
     (output / "codeql-pack.yml").write_text(
         "name: brokkai/csmi-external-normalize-model\nversion: 0.0.0\nlibrary: true\nextensionTargets:\n  codeql/java-all: 9.2.3\ndataExtensions:\n  - csmi.model.yml\n",

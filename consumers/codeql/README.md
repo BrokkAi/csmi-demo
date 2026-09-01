@@ -1,8 +1,11 @@
-# CodeQL consumer (adapter groundwork)
+# CodeQL consumer (blocked diagnostic)
 
-This directory contains the fail-closed adapter for issue #3. It does **not**
-yet contain a retained CodeQL interoperability result: the shared issue #1
-fixture, labels, binary, and producer-generated CSMI pack are not on `main`.
+This directory contains the fail-closed CodeQL adapter and the runnable
+pack-off diagnostic for issue #3. It does **not** contain a retained
+interoperability result: the shared fixture and labels are present, but the
+Bifrost-produced CSMI pack remains unavailable because
+[Bifrost issue #2841](https://github.com/BrokkAi/bifrost-dev/issues/2841) is
+open.
 
 ## Capability gate
 
@@ -25,27 +28,48 @@ accepts the negative `constant` model only for the scenario's receiver-free JVM
 callable. It rejects an instance callable rather than applying a CSMI exact-
 callable absence claim to overrides.
 
+## Blocked diagnostic
+
+Run the diagnostic with the exact pinned CLI:
+
+```sh
+./consumers/codeql/run-blocked-diagnostic.sh /tmp/codeql-blocked.json
+```
+
+It verifies the shared fixture, runs the Python tests, resolves the locked query
+pack, builds one CodeQL database rooted at `analyzer-input`, proves through the
+database source archive that `audit-source` and `producer` were not extracted,
+and runs [`ExternalNormalize.ql`](query/ExternalNormalize.ql) with no model
+pack. The current diagnostic reports no labels. That observation is explicitly
+recorded as `diagnostic-only`: it is not classified as retained false-negative
+evidence without the matching pack-on run.
+
+The emitted JSON preserves the exact fixture, query, CLI, library-pack, and
+upstream-blocker identities. Pack-on is `blocked`; the paired comparison,
+counts, precision, and recall are `null`. If the scenario leaves its typed
+blocked state or the database crosses the analyzer boundary, validation fails
+closed.
+
 ## Disposable generation
 
-Once issue #1 lands, generate the model pack outside the source tree:
+When Bifrost can export the shared pack, generate the CodeQL model pack outside
+the source tree:
 
 ```sh
 python3 consumers/codeql/generate_model.py \
   --pack scenarios/external-normalize/pack \
-  --artifact scenarios/external-normalize/artifacts/external-normalize.jar \
+  --artifact scenarios/external-normalize/analyzer-input/lib/external-normalize-1.0.0.jar \
   --output "$RUNNER_TEMP/codeql-csmi-model"
 ```
 
 Generation validates the manifest resource size and digest, matches the exact
-versioned PURL and whole-artifact SHA-256, requires the JVM identity profile
-`ai.brokk.csmi.jvm-symbol` `0.1`, checks the exact callable signatures and
+Maven PURL and `jar` SHA-256 selector, requires the JVM identity profile
+`ai.brokk.csmi.jvm-symbol` `0.1`, checks the exact static callable signatures and
 complete transfer scopes, and emits `trace.json`. Any mismatch, unsupported
 semantic shape, or generation failure exits nonzero. Generated CodeQL data is
 disposable and must not be committed as another semantic source of truth.
 
-The query, pack-off/on runner, evidence validator, and CI workflow remain
-blocked on the exact shared application, labels, paths, binary, and pack from
-issue #1. They must build one database from application inputs that exclude the
-external implementation, then run the same query with only this generated
-model pack toggled.
-
+The future paired run must reuse the same database and query with only
+`--additional-packs` and
+`--model-packs=brokkai/csmi-external-normalize-model@0.0.0` added. Until a valid
+Bifrost pack exists, no pack-on result or precision/recall claim is made.

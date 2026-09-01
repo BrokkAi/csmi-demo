@@ -11,6 +11,7 @@ details local and apply them to the shared analyzer-neutral scenario contract.
 
 ## Consumers
 
+- [`codeql/`](codeql/) — a fail-closed CSMI adapter and CodeQL query integration.
 - [`flowdroid/`](flowdroid/) — a pinned FlowDroid/Soot adapter with retained
   shared-scenario pack-off and pack-on interoperability results.
 - [`minimal-dataflow/`](minimal-dataflow/) — a small graph consumer with
