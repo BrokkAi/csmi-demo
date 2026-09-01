@@ -66,6 +66,11 @@
         <version>3.5.4</version>
         <configuration><useModulePath>false</useModulePath></configuration>
       </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.6.1</version>
+      </plugin>
     </plugins>
   </build>
 </project>
