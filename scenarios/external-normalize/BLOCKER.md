@@ -5,6 +5,8 @@ The fixture requires complete `procedure-summaries` coverage for
 CSMI v0.1 mechanism that makes the absent `parameter[0] -> result[0]` edge a
 meaningful negative rather than unknown.
 
+Tracked upstream as [Bifrost issue #2841](https://github.com/BrokkAi/bifrost-dev/issues/2841).
+
 Bifrost's merged CSMI exporter supports that CSMI representation, but its
 authored semantic-pack compiler currently rejects the required producer input
 before export:

@@ -107,6 +107,7 @@ def main():
             "code": "summary.empty",
             "path": "$.shards[1].payload.summaries[0]",
             "record": "BLOCKER.md",
+            "upstreamIssue": "https://github.com/BrokkAi/bifrost-dev/issues/2841",
         },
     }:
         fail("blocked pack identity changed unexpectedly")
