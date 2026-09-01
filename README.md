@@ -4,8 +4,9 @@ This repository demonstrates that a consumer can use a
 [Code Semantic Model Interchange (CSMI)](https://github.com/BrokkAi/code-semantic-model-interchange/blob/main/spec/0.1/specification.md) pack without
 depending on the producer's internal representation.
 
-> **Status:** scaffolding only. No consumer or scenario in this repository is
-> runnable yet, and no retained interoperability result has been produced.
+> **Status:** the first deterministic fixture and labels are materialized, but
+> CSMI export is blocked on complete-empty summary support in Bifrost. No
+> consumer or retained interoperability result exists yet.
 
 This is not the CSMI standard and it is not a CSMI SDK. The normative
 specification and schema live in the
@@ -25,8 +26,8 @@ Each demo performs the same analysis twice and compares the results:
 3. compare both runs against labeled expected flows to expose false positives
    and false negatives.
 
-The initial scenario will pair a genuine parameter-to-return transfer with a
-near miss that has no such transfer. This makes both positive and negative flow
+The initial scenario pairs a genuine parameter-to-return transfer with a near
+miss that has no such transfer. This makes both positive and negative flow
 labels available. A consumer may recover recall, improve precision, or both;
 its documentation and retained results must claim only the changes the evidence
 actually supports.
@@ -47,9 +48,10 @@ scenarios/
   The first planned consumer is the deliberately small
   [`minimal-dataflow`](consumers/minimal-dataflow/) implementation.
 - [`scenarios/`](scenarios/) contains analyzer-neutral application inputs,
-  opaque dependency fixtures, CSMI packs, labels, and expected outcomes.
-- [`external-normalize`](scenarios/external-normalize/) defines the first
-  planned controlled Java scenario.
+  opaque dependency fixtures, labels, expected outcomes, and CSMI packs once
+  producer capability is available.
+- [`external-normalize`](scenarios/external-normalize/) contains the first
+  controlled Java fixture and its preserved CSMI-export blocker.
 
 Scenarios are shared deliberately. Every consumer must use the same pinned
 library artifact, CSMI pack, and labels rather than maintaining a private copy.

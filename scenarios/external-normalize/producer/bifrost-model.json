@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "pack_id": "ai.brokk.csmi-demo.external-normalize",
+  "version": "1.0.0",
+  "producer": {
+    "name": "bifrost",
+    "version": "0.10.7+d883a143f31aba973401ad079e313bf080aafe17"
+  },
+  "language": "java",
+  "ecosystem": "maven",
+  "compatibility": {
+    "bifrost": ">=0.10.5, <0.11.0",
+    "toolchains": [
+      {
+        "name": "jdk",
+        "requirement": ">=17.0.0, <22.0.0"
+      }
+    ]
+  },
+  "provenance": {
+    "source": "https://github.com/BrokkAi/csmi-demo/tree/dave/issue-1-external-normalize/scenarios/external-normalize",
+    "revision": "bifrost:d883a143f31aba973401ad079e313bf080aafe17"
+  },
+  "license": "Apache-2.0",
+  "completeness": "complete",
+  "safety": {
+    "generated_code_only": false,
+    "review_required": false
+  },
+  "shards": [
+    {
+      "id": "declarations.external-normalizer",
+      "activation": [
+        {
+          "package": {
+            "name": "ai.brokk.csmi-demo:external-normalize",
+            "version": ">=1.0.0, <=1.0.0"
+          },
+          "targets": ["jvm"],
+          "configurations": ["release"]
+        }
+      ],
+      "payload": {
+        "kind": "declaration_facts",
+        "types": [
+          {
+            "id": "type.external-normalizer",
+            "name": "ai.brokk.csmi.demo.ExternalNormalizer",
+            "type_kind": "class",
+            "visibility": "public",
+            "locator": {
+              "kind": "artifact",
+              "path": "ai/brokk/csmi/demo/ExternalNormalizer.class",
+              "symbol": "ai.brokk.csmi.demo.ExternalNormalizer"
+            }
+          },
+          {
+            "id": "type.java.lang.string",
+            "name": "java.lang.String",
+            "type_kind": "class",
+            "visibility": "public",
+            "locator": {
+              "kind": "artifact",
+              "path": "java/lang/String.class",
+              "symbol": "java.lang.String"
+            }
+          }
+        ],
+        "members": [
+          {
+            "id": "member.external-normalizer.constant",
+            "owner": "type.external-normalizer",
+            "name": "constant",
+            "member_kind": "static",
+            "visibility": "public",
+            "signature": {
+              "parameters": [
+                {
+                  "name": "input",
+                  "type": {
+                    "kind": "declared",
+                    "id": "type.java.lang.string"
+                  }
+                }
+              ],
+              "returns": {
+                "kind": "declared",
+                "id": "type.java.lang.string"
+              }
+            },
+            "locator": {
+              "kind": "artifact",
+              "path": "ai/brokk/csmi/demo/ExternalNormalizer.class",
+              "symbol": "constant(java.lang.String)"
+            }
+          },
+          {
+            "id": "member.external-normalizer.normalize",
+            "owner": "type.external-normalizer",
+            "name": "normalize",
+            "member_kind": "static",
+            "visibility": "public",
+            "signature": {
+              "parameters": [
+                {
+                  "name": "input",
+                  "type": {
+                    "kind": "declared",
+                    "id": "type.java.lang.string"
+                  }
+                }
+              ],
+              "returns": {
+                "kind": "declared",
+                "id": "type.java.lang.string"
+              }
+            },
+            "locator": {
+              "kind": "artifact",
+              "path": "ai/brokk/csmi/demo/ExternalNormalizer.class",
+              "symbol": "normalize(java.lang.String)"
+            }
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "id": "summaries.external-normalizer",
+      "activation": [
+        {
+          "package": {
+            "name": "ai.brokk.csmi-demo:external-normalize",
+            "version": ">=1.0.0, <=1.0.0"
+          },
+          "targets": ["jvm"],
+          "configurations": ["release"]
+        }
+      ],
+      "payload": {
+        "kind": "procedure_summaries",
+        "summaries": [
+          {
+            "id": "summary.external-normalizer.constant",
+            "target": {
+              "path": "ai.brokk.csmi.demo.ExternalNormalizer",
+              "symbol": "constant",
+              "has_receiver": false,
+              "parameter_count": 1
+            },
+            "completeness": "complete",
+            "transfers": []
+          },
+          {
+            "id": "summary.external-normalizer.normalize",
+            "target": {
+              "path": "ai.brokk.csmi.demo.ExternalNormalizer",
+              "symbol": "normalize",
+              "has_receiver": false,
+              "parameter_count": 1
+            },
+            "completeness": "complete",
+            "transfers": [
+              {
+                "input": {
+                  "kind": "parameter",
+                  "ordinal": 0
+                },
+                "exit_kind": "normal",
+                "output": {
+                  "kind": "normal_return"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

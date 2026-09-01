@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "scenario": {
+    "id": "external-normalize",
+    "version": "1.0.0",
+    "status": "blocked",
+    "labels": {
+      "path": "labels.json",
+      "sha256": "c5a20e0a19d24d4b2d12ec81784110828ef842c739fddd1c2a0f451b931738f3"
+    }
+  },
+  "normativeCsmi": {
+    "repository": "https://github.com/BrokkAi/code-semantic-model-interchange",
+    "commit": "e2b2c3d5f620348fcb60261be30850ae23cd99b0",
+    "semanticModelVersion": "0.1",
+    "serializationVersion": "0.1-json",
+    "packFormatVersion": "0.1",
+    "schema": "https://csmi.brokk.ai/schema/0.1/schema.json"
+  },
+  "sourceArtifact": {
+    "path": "audit-source/src/main/java/ai/brokk/csmi/demo/ExternalNormalizer.java",
+    "sha256": "9c88f3eaa7fb76c0d163566ebd6d3ab597b0e5517f14af575a9bb2fdb4e1e6a3"
+  },
+  "build": {
+    "script": "scripts/build-fixture.sh",
+    "scriptSha256": "4af04bdc62c66f0748d3bc6fd7073cc8796b114135736f5705f0a7602ec1973d",
+    "jdkDistribution": "Eclipse Temurin",
+    "jdkRuntime": "21.0.8+9-LTS",
+    "javacVersion": "21.0.8",
+    "jarVersion": "21.0.8",
+    "classFileRelease": 17,
+    "jarEntryTimestamp": "1980-01-01T00:00:02Z"
+  },
+  "binaryArtifact": {
+    "purl": "pkg:maven/ai.brokk.csmi-demo/external-normalize@1.0.0",
+    "path": "analyzer-input/lib/external-normalize-1.0.0.jar",
+    "digestCoverage": "jar",
+    "sha256": "d343c7d2fc3703ac426340bd6c7ae5ed4c414436f197b7a2cc98fc4a9357d8e8"
+  },
+  "applicationArtifact": {
+    "path": "analyzer-input/src/main/java/ai/brokk/csmi/demo/ScenarioApplication.java",
+    "sha256": "f06c5e8a6170eb274d70082e4a1ace661bea714b05768302fe06956e5289d30b"
+  },
+  "analyzerBoundary": {
+    "inputRoot": "analyzer-input",
+    "includedPaths": [
+      "analyzer-input/lib/external-normalize-1.0.0.jar",
+      "analyzer-input/src/main/java/ai/brokk/csmi/demo/ScenarioApplication.java"
+    ],
+    "excludedRoots": [
+      "audit-source",
+      "producer"
+    ]
+  },
+  "producerInput": {
+    "format": "Bifrost AuthoredSemanticModelPack schema_version 1",
+    "path": "producer/bifrost-model.json",
+    "sha256": "6526c28a8c15d74185e3c14a195e561ef69104b1bf781835fd54a4b15e2c6955"
+  },
+  "csmiProducer": {
+    "repository": "https://github.com/BrokkAi/bifrost-dev",
+    "commit": "d883a143f31aba973401ad079e313bf080aafe17",
+    "crate": "brokk-bifrost-analysis",
+    "crateVersion": "0.10.7",
+    "api": "export_authored_csmi_pack",
+    "rustcVersion": "1.97.1 (8bab26f4f 2026-07-14)",
+    "cargoVersion": "1.97.1 (c980f4866 2026-06-30)"
+  },
+  "csmiPack": {
+    "status": "unavailable",
+    "manifestPath": null,
+    "packDigest": null,
+    "resourceDigests": [],
+    "blocker": {
+      "code": "summary.empty",
+      "path": "$.shards[1].payload.summaries[0]",
+      "record": "BLOCKER.md"
+    }
+  }
+}

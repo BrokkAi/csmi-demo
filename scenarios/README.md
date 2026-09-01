@@ -1,4 +1,4 @@
-# Shared scenarios (planned)
+# Shared scenarios
 
 This directory is the analyzer-neutral scenario contract for the demo. A
 scenario describes the application-side code, the external boundary, the
@@ -10,7 +10,7 @@ Consumers under [`../consumers/`](../consumers/) should use the same scenarios
 for pack-off and pack-on runs. Keeping scenarios shared prevents each consumer
 from quietly changing the ground truth or measuring a different fixture.
 
-## Planned scenario contents
+## Scenario contents
 
 Each scenario directory should document:
 
@@ -28,6 +28,8 @@ FP)` only where `TP + FP > 0`; recall is `TP / (TP + FN)` only where `TP + FN >
 0`. A zero denominator makes that metric undefined/not applicable, not zero and
 not one.
 
-All scenarios in this repository are scaffolding and planned. They are not
-published benchmark evidence and do not claim that any consumer or semantic
-pack exists.
+[`external-normalize`](external-normalize/) materializes the first deterministic
+opaque fixture and shared labels. Its Bifrost-generated CSMI pack is not yet
+available because the producer cannot export a complete empty transfer set; the
+exact blocker is retained with the scenario. This is not published benchmark
+evidence and does not claim that a consumer result exists.

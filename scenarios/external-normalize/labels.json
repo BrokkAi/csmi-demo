@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "scenario": "external-normalize",
+  "flows": [
+    {
+      "id": "constant.input-to-return",
+      "callable": "ai.brokk.csmi.demo.ExternalNormalizer.constant(java.lang.String):java.lang.String",
+      "sourceLabel": "constant.input-to-return",
+      "sinkLabel": "constant.input-to-return",
+      "expected": false,
+      "classification": "negative-near-miss"
+    },
+    {
+      "id": "normalize.input-to-return",
+      "callable": "ai.brokk.csmi.demo.ExternalNormalizer.normalize(java.lang.String):java.lang.String",
+      "sourceLabel": "normalize.input-to-return",
+      "sinkLabel": "normalize.input-to-return",
+      "expected": true,
+      "classification": "positive"
+    }
+  ]
+}

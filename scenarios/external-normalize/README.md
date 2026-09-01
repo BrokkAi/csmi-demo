@@ -1,69 +1,54 @@
-# External normalize scenario (planned)
+# External normalize scenario
 
-This planned scenario exercises two procedures at an external binary boundary.
-The application will obtain input values, pass them to opaque Java `normalize`
-and `constant` operations, and use the returned values in sinks. `normalize`
-preserves its input; `constant` returns a value unrelated to its input. The
-intended demonstration is that a consumer can distinguish these cases from a
-semantic model even though both implementations are unavailable to the
-application analyzer.
+This shared Java scenario fixes one opaque binary boundary and two expected
+information-flow labels. It contains no consumer query, analyzer result, or
+precision/recall claim.
 
-## Opaque fixture boundary
+## Boundary
 
-The future fixture will be a controlled Java binary artifact containing the
-external `normalize` and `constant` operations. Its source, retained for audit
-and fixture reproducibility, is **not part of the analyzer-indexed application
-inputs**. The application analyzer must see only the opaque binary boundary; it
-must not index, inspect, or infer behavior from the auditable source. The
-eventual fixture manifest should record the binary identity and source/audit
-identity separately, with hashes and build details, so a reviewer can reproduce
-the fixture without accidentally giving the analyzer source access.
+Only [`analyzer-input/`](analyzer-input/) is an analyzer input root. It contains
+the application source and the pinned library JAR. The auditable library source
+lives separately under [`audit-source/`](audit-source/) and **must never be
+added to an analyzer database, source root, extraction command, or index**.
 
-This README is only a plan. It does not add the Java binary, auditable source,
-build output, SDK, semantic pack, analyzer implementation, or CodeQL placeholder.
+The application calls two static methods with identical JVM shapes:
 
-## Planned flow labels
+- `ExternalNormalizer.normalize(String)` returns its argument;
+- `ExternalNormalizer.constant(String)` returns a fixed unrelated value.
 
-The eventual scenario should use stable labels such as these and keep them
-unchanged across pack-off and pack-on runs:
+The machine-readable ground truth is [`labels.json`](labels.json). Source and
+sink definitions remain consumer-local query concepts; labels state only the
+expected end-to-end flow through each call.
 
-| Label | Expected flow | Type |
-| --- | --- | --- |
-| `normalize.input-to-return` | application input → `normalize` normal return → sink | positive |
-| `constant.input-to-return` | application input does not flow through `constant` to its normal return or sink | negative |
+## Reproduce and verify
 
-The table defines the expected behavior, not an analyzer query. The final
-scenario artifact should add exact source locations or stable IDs once the
-application fixture is designed.
+The fixture is built with Eclipse Temurin JDK `21.0.8+9-LTS`, using `javac
+21.0.8` and `jar 21.0.8`. The class-file target is Java 17 (`--release 17`). No
+network dependency or separate build tool is involved.
 
-## Planned pack-off / pack-on evidence
+```sh
+./scenarios/external-normalize/scripts/build-fixture.sh
+./scenarios/external-normalize/scripts/verify.py
+```
 
-The CSMI pack will declare the parameter-to-normal-return transfer for
-`normalize`. It will declare complete transfer coverage for `constant` without
-such a transfer, making absence meaningful rather than merely unknown.
+The build script compiles in a temporary directory, fixes the JAR entry time,
+and refuses to overwrite the retained artifact unless the bytes equal the
+pinned SHA-256. While export is blocked, the verifier checks source,
+application, JAR, labels, producer input, intended transfers and completeness,
+the analyzer/audit boundary, and that no unverified CSMI pack is present.
 
-Run the same application and opaque binary twice:
+## CSMI production blocker
 
-1. **Pack off:** no CSMI semantic model is available for either operation.
-2. **Pack on:** the planned CSMI model for the exact binary is available.
+The deterministic fixture and labels are materialized, but this scenario is
+not yet complete. Bifrost commit
+`d883a143f31aba973401ad079e313bf080aafe17` (the merge of Bifrost PR #2840)
+cannot export the required negative summary from its authored-pack boundary:
+the internal compiler rejects a complete empty transfer set with
+`summary.empty` before `export_authored_csmi_pack` runs.
 
-Record each label's expected status and observed status for each run. For the
-positive flow, a reported flow is TP and an absent flow is FN. For the negative
-case, a report is FP and no report is TN. Any report that cannot be tied to a
-stable label, and any incomplete/unsupported run, must be retained as
-unresolved evidence rather than silently counted as TN.
-
-The pack-on result must match both labels. The pack-off result must contain at
-least one false positive or false negative; otherwise this scenario does not
-demonstrate a useful semantic-pack delta for that consumer.
-
-For a run, compute precision as `TP / (TP + FP)` only if `TP + FP > 0`, and
-recall as `TP / (TP + FN)` only if `TP + FN > 0`. When a denominator is zero,
-write `undefined`/`not applicable` and the denominator. Do not substitute zero
-or one. Per-flow records, fixture identity, analyzer/consumer identity, and
-pack identity are the primary evidence; precision and recall are derived
-summaries.
-
-The scenario remains scaffolding/planned until the opaque fixture, independent
-consumer, model, and reproducible evidence workflow are implemented and
-reviewed.
+The exact attempted producer input is
+[`producer/bifrost-model.json`](producer/bifrost-model.json), and the reproduced
+capability failure is recorded in [`BLOCKER.md`](BLOCKER.md) and
+[`scenario.json`](scenario.json). No CSMI pack is retained: adding a fake
+transfer, misusing an unrelated Bifrost semantic solely to bypass the compiler,
+or hand-authoring final CSMI bytes would manufacture interoperability evidence.
