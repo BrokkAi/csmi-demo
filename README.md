@@ -4,9 +4,9 @@ This repository demonstrates that a consumer can use a
 [Code Semantic Model Interchange (CSMI)](https://github.com/BrokkAi/code-semantic-model-interchange/blob/main/spec/0.1/specification.md) pack without
 depending on the producer's internal representation.
 
-> **Status:** the first deterministic fixture and labels are materialized, but
-> CSMI export is blocked on complete-empty summary support in Bifrost. No
-> consumer or retained interoperability result exists yet.
+> **Status:** the first deterministic fixture, labels, and exact
+> Bifrost-generated CSMI pack are materialized. Consumer interoperability
+> results remain independently owned by their consumer tasks.
 
 This is not the CSMI standard and it is not a CSMI SDK. The normative
 specification and schema live in the
@@ -48,10 +48,10 @@ scenarios/
   The first planned consumer is the deliberately small
   [`minimal-dataflow`](consumers/minimal-dataflow/) implementation.
 - [`scenarios/`](scenarios/) contains analyzer-neutral application inputs,
-  opaque dependency fixtures, labels, expected outcomes, and CSMI packs once
-  producer capability is available.
+  opaque dependency fixtures, labels, expected outcomes, and retained CSMI
+  packs.
 - [`external-normalize`](scenarios/external-normalize/) contains the first
-  controlled Java fixture and its preserved CSMI-export blocker.
+  controlled Java fixture and exact Bifrost-generated CSMI pack.
 
 Scenarios are shared deliberately. Every consumer must use the same pinned
 library artifact, CSMI pack, and labels rather than maintaining a private copy.

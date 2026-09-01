@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "producer": {
     "name": "bifrost",
-    "version": "0.10.7+d883a143f31aba973401ad079e313bf080aafe17"
+    "version": "0.10.7+f91ef53ee28893f23c3a5843d90abd3177bed9df"
   },
   "language": "java",
   "ecosystem": "maven",
@@ -18,8 +18,8 @@
     ]
   },
   "provenance": {
-    "source": "https://github.com/BrokkAi/csmi-demo/tree/dave/issue-1-external-normalize/scenarios/external-normalize",
-    "revision": "bifrost:d883a143f31aba973401ad079e313bf080aafe17"
+    "source": "https://github.com/BrokkAi/csmi-demo/tree/main/scenarios/external-normalize",
+    "revision": "bifrost:f91ef53ee28893f23c3a5843d90abd3177bed9df"
   },
   "license": "Apache-2.0",
   "completeness": "complete",
