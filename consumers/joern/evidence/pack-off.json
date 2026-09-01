@@ -1,0 +1,153 @@
+{
+  "analysis": {
+    "cpgSha256": "fefeb17e8d04ff1d8d36e548b23beae302aab23cea933e89dd1d614f498f0435",
+    "externalMethods": [
+      {
+        "fullName": "<operator>.alloc",
+        "hasReceiver": true,
+        "name": "<operator>.alloc",
+        "parameterCount": 0,
+        "signature": ""
+      },
+      {
+        "fullName": "<operator>.assignment",
+        "hasReceiver": false,
+        "name": "<operator>.assignment",
+        "parameterCount": 2,
+        "signature": ""
+      },
+      {
+        "fullName": "<operator>.equals",
+        "hasReceiver": false,
+        "name": "<operator>.equals",
+        "parameterCount": 2,
+        "signature": ""
+      },
+      {
+        "fullName": "<operator>.logicalOr",
+        "hasReceiver": false,
+        "name": "<operator>.logicalOr",
+        "parameterCount": 2,
+        "signature": ""
+      },
+      {
+        "fullName": "ai.brokk.csmi.demo.ExternalNormalizer.constant:java.lang.String(java.lang.String)",
+        "hasReceiver": true,
+        "name": "constant",
+        "parameterCount": 1,
+        "signature": "java.lang.String(java.lang.String)"
+      },
+      {
+        "fullName": "ai.brokk.csmi.demo.ExternalNormalizer.normalize:java.lang.String(java.lang.String)",
+        "hasReceiver": true,
+        "name": "normalize",
+        "parameterCount": 1,
+        "signature": "java.lang.String(java.lang.String)"
+      },
+      {
+        "fullName": "java.lang.IllegalArgumentException.<init>:void(java.lang.String)",
+        "hasReceiver": true,
+        "name": "<init>",
+        "parameterCount": 1,
+        "signature": "void(java.lang.String)"
+      }
+    ],
+    "formatVersion": "joern-cpg/4.0.592",
+    "methodEvidenceSha256": "f25079350e34168b1848dcde573b767236411b49002cf5ec9562c3afc6540b4c",
+    "packEnabled": false
+  },
+  "artifact": {
+    "digests": [
+      {
+        "algorithm": "sha-256",
+        "coverage": "jar",
+        "value": "d343c7d2fc3703ac426340bd6c7ae5ed4c414436f197b7a2cc98fc4a9357d8e8"
+      }
+    ],
+    "purl": "pkg:maven/ai.brokk.csmi-demo/external-normalize@1.0.0"
+  },
+  "consumer": {
+    "configurationPath": "consumers/joern/versions.json",
+    "configurationSha256": "180f6569d0089879e3c0e7cd3cdaeabee328e8b6624e919d5753ea420febab68",
+    "name": "io.joern.joern",
+    "version": "4.0.592"
+  },
+  "counts": {
+    "falseNegative": 0,
+    "falsePositive": 1,
+    "trueNegative": 0,
+    "truePositive": 1
+  },
+  "flows": [
+    {
+      "classification": "FP",
+      "expectedFlow": false,
+      "id": "constant.input-to-return",
+      "observedFlow": true,
+      "pathCount": 1,
+      "paths": [
+        [
+          "source(\"constant.input-to-return\")",
+          "constantInput",
+          "constantInput",
+          "ExternalNormalizer",
+          "ExternalNormalizer.constant(constantInput)",
+          "constant",
+          "constant"
+        ]
+      ]
+    },
+    {
+      "classification": "TP",
+      "expectedFlow": true,
+      "id": "normalize.input-to-return",
+      "observedFlow": true,
+      "pathCount": 1,
+      "paths": [
+        [
+          "source(\"normalize.input-to-return\")",
+          "normalizeInput",
+          "normalizeInput",
+          "ExternalNormalizer",
+          "ExternalNormalizer.normalize(normalizeInput)",
+          "normalized",
+          "normalized"
+        ]
+      ]
+    }
+  ],
+  "metrics": {
+    "precision": {
+      "defined": true,
+      "denominator": 2,
+      "numerator": 1,
+      "value": 0.5
+    },
+    "recall": {
+      "defined": true,
+      "denominator": 1,
+      "numerator": 1,
+      "value": 1.0
+    }
+  },
+  "pack": {
+    "state": "off"
+  },
+  "provenance": {
+    "records": []
+  },
+  "resultFormatVersion": "csmi-demo-consumer-result/1",
+  "scenario": {
+    "id": "external-normalize",
+    "labels": {
+      "path": "labels.json",
+      "sha256": "c5a20e0a19d24d4b2d12ec81784110828ef842c739fddd1c2a0f451b931738f3"
+    },
+    "manifest": {
+      "path": "scenario.json",
+      "sha256": "be3dee82624a3f37caa01af5039d54d526d1d512a32173410a4fa33f964725f7"
+    },
+    "version": "1.0.0"
+  },
+  "status": "complete"
+}

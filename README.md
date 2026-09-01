@@ -5,8 +5,8 @@ This repository demonstrates that a consumer can use a
 depending on the producer's internal representation.
 
 > **Status:** the first deterministic fixture, labels, exact Bifrost-generated
-> CSMI pack, and independently reproduced minimal-dataflow and CodeQL consumer
-> interoperability results are materialized.
+> CSMI pack, and independently reproduced minimal-dataflow, FlowDroid, CodeQL,
+> and Joern 4.0.592 consumer interoperability results are materialized.
 
 This is not the CSMI standard and it is not a CSMI SDK. The normative
 specification and schema live in the
@@ -48,7 +48,12 @@ scenarios/
   The deliberately small [`minimal-dataflow`](consumers/minimal-dataflow/)
   implementation is runnable and retains independent pack-off and pack-on
   results against the shared scenario. [`codeql`](consumers/codeql/) contains
-  the CodeQL adapter and query integration.
+  the CodeQL adapter and query integration. The
+  [`flowdroid`](consumers/flowdroid/) consumer provides a pinned FlowDroid/Soot
+  adapter and retained paired results. The [`joern`](consumers/joern/) consumer
+  runs the same CPG with custom CSMI-derived semantics toggled off and on; its
+  retained evidence shows the complete-empty summary removes one false positive
+  while preserving the positive flow.
 - [`scenarios/`](scenarios/) contains analyzer-neutral application inputs,
   opaque dependency fixtures, labels, expected outcomes, and retained CSMI
   packs.

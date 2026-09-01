@@ -45,6 +45,10 @@ jobs:
             -classpath scenarios/external-normalize/analyzer-input/lib/external-normalize-1.0.0.jar \
             -d "$build_dir" \
             scenarios/external-normalize/analyzer-input/src/main/java/ai/brokk/csmi/demo/ScenarioApplication.java
+      - name: Validate the Joern adapter and result contract
+        run: |
+          python3 -m pip install --requirement consumers/joern/requirements-validation.txt
+          python3 -m unittest discover -s consumers/joern -p 'test_*.py' -v
 
   codeql-consumer:
     runs-on: ubuntu-latest
@@ -78,3 +82,48 @@ jobs:
           path: ${{ runner.temp }}/codeql-results
           if-no-files-found: error
           retention-days: 14
+
+  joern-external-normalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21.0.8+9.0.LTS'
+      - name: Install pinned Joern 4.0.592
+        run: |
+          archive="$RUNNER_TEMP/joern-cli-linux-x86_64.zip"
+          curl --fail --location --retry 3 \
+            https://github.com/joernio/joern/releases/download/v4.0.592/joern-cli-linux-x86_64.zip \
+            --output "$archive"
+          echo '1147db0a9b539d635c77174a22bcbe850133633f279871db8d815aa7479a7db6  '"$archive" | sha256sum --check
+          unzip -q "$archive" -d "$RUNNER_TEMP/joern"
+      - name: Run the same-CPG Joern pack-off and pack-on pair
+        run: |
+          python3 -m pip install --requirement consumers/joern/requirements-validation.txt
+          output="$RUNNER_TEMP/joern-result"
+          consumers/joern/run.sh \
+            scenarios/external-normalize \
+            "$RUNNER_TEMP/joern/joern-cli" \
+            "$JAVA_HOME" \
+            "$output"
+          jq -e '
+            .resultFormatVersion == "csmi-demo-consumer-result/1" and
+            .status == "complete" and
+            .pack.state == "off" and
+            .counts.truePositive == 1 and
+            .counts.falsePositive == 1 and
+            .counts.falseNegative == 0
+          ' "$output/pack-off.json" >/dev/null
+          jq -e '
+            .resultFormatVersion == "csmi-demo-consumer-result/1" and
+            .status == "complete" and
+            .pack.state == "on" and
+            .counts.truePositive == 1 and
+            .counts.trueNegative == 1 and
+            .counts.falsePositive == 0 and
+            .counts.falseNegative == 0 and
+            .analysis.cpgSha256 != null and
+            .analysis.cpgSha256 == $input_filename
+          ' --arg input_filename "$(jq -r '.analysis.cpgSha256' "$output/pack-off.json")" "$output/pack-on.json" >/dev/null

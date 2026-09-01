@@ -1,0 +1,20 @@
+{
+  "joern": {
+    "release": "4.0.592",
+    "linuxX86_64ArchiveUrl": "https://github.com/joernio/joern/releases/download/v4.0.592/joern-cli-linux-x86_64.zip",
+    "linuxX86_64ArchiveSha256": "1147db0a9b539d635c77174a22bcbe850133633f279871db8d815aa7479a7db6",
+    "macosArm64ArchiveSha256": "32a60430d3db255d391010c432bd5d72d4a76fc0aeb77d7015ba0029aab26205",
+    "cliJarSha256": "22dc242defb713f1f7257ee5efc3be7b7abd3216d9d8f500906bbe04716b47c4",
+    "javaFrontendJarSha256": "60bc0f0eb9c0fcb3c02e4eed890766c2720b146ed00942bbcfa87fb5779bc234"
+  },
+  "javaFrontend": {
+    "distribution": "bundled-with-joern-4.0.592",
+    "typeRecovery": true,
+    "typeFallback": false,
+    "delombokMode": "no-delombok"
+  },
+  "jdk": {
+    "distribution": "Eclipse Temurin",
+    "version": "21.0.8+9-LTS"
+  }
+}
