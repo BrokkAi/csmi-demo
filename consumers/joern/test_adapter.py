@@ -16,14 +16,17 @@ def canonical(value):
 
 
 def base_document():
-    def symbol(symbol_id, name, full_name):
+    def symbol(symbol_id, name):
         return {
             "id": symbol_id,
             "scheme": "org.example.java-source",
             "schemeVersion": "0.1",
             "stability": "portable",
-            "descriptors": [{"role": "callable", "name": name}],
-            "externalIdentities": [{"scheme": adapter.JOERN_IDENTITY_SCHEME, "version": adapter.JOERN_IDENTITY_VERSION, "value": full_name}],
+            "descriptors": [
+                {"role": "namespace", "name": "test"},
+                {"role": "type", "name": "External"},
+                {"role": "callable", "name": name, "disambiguator": "(java.lang.String)->java.lang.String"},
+            ],
         }
 
     return {
@@ -35,10 +38,15 @@ def base_document():
         "defaultProvenance": "test",
         "semanticModels": [{
             "artifactSelectors": [{"purl": "pkg:maven/test/external@1.0", "digests": [{"algorithm": "sha-256", "coverage": "binary", "value": "a" * 64}]}],
-            "symbols": [symbol("instance", "instance", "test.External.instance:java.lang.String(java.lang.String)"), symbol("constant", "constant", "test.External.constant:java.lang.String(java.lang.String)")],
+            "symbols": [
+                symbol("instance", "instance"),
+                symbol("constant", "constant"),
+                {"id": "external-type", "scheme": "org.example.java-source", "schemeVersion": "0.1", "stability": "portable", "descriptors": [{"role": "namespace", "name": "test"}, {"role": "type", "name": "External"}]},
+                {"id": "string-type", "scheme": "org.example.java-source", "schemeVersion": "0.1", "stability": "portable", "descriptors": [{"role": "namespace", "name": "java"}, {"role": "namespace", "name": "lang"}, {"role": "type", "name": "String"}]},
+            ],
             "declarations": [
-                {"symbol": "instance", "category": "callable", "callable": {"kind": "method", "receiver": {"kind": "instance"}, "parameters": [{"position": 0, "binding": "positional-only", "required": True}], "results": [{"position": 0}]}},
-                {"symbol": "constant", "category": "callable", "callable": {"kind": "method", "parameters": [{"position": 0, "binding": "positional-only", "required": True}], "results": [{"position": 0}]}},
+                {"symbol": "instance", "owner": "external-type", "category": "callable", "callable": {"kind": "method", "receiver": {"kind": "instance"}, "parameters": [{"position": 0, "binding": "positional-only", "required": True, "type": {"kind": "reference", "symbol": "string-type"}}], "results": [{"position": 0, "type": {"kind": "reference", "symbol": "string-type"}}]}},
+                {"symbol": "constant", "owner": "external-type", "category": "callable", "callable": {"kind": "method", "parameters": [{"position": 0, "binding": "positional-only", "required": True, "type": {"kind": "reference", "symbol": "string-type"}}], "results": [{"position": 0, "type": {"kind": "reference", "symbol": "string-type"}}]}},
             ],
             "procedureSummaries": [
                 {"callable": "instance", "transfers": [
@@ -58,10 +66,10 @@ def base_document():
 
 def methods():
     return [
-        {"fullName": "test.External.instance:java.lang.String(java.lang.String)", "signature": "java.lang.String(java.lang.String)", "isExternal": True, "hasReceiver": True, "parameterCount": 1},
+        {"name": "instance", "fullName": "test.External.instance:java.lang.String(java.lang.String)", "signature": "java.lang.String(java.lang.String)", "isExternal": True, "hasReceiver": True, "parameterCount": 1},
         # Joern models a Java static-call type qualifier in argument slot 0;
         # that is not a semantic CSMI receiver.
-        {"fullName": "test.External.constant:java.lang.String(java.lang.String)", "signature": "java.lang.String(java.lang.String)", "isExternal": True, "hasReceiver": True, "parameterCount": 1},
+        {"name": "constant", "fullName": "test.External.constant:java.lang.String(java.lang.String)", "signature": "java.lang.String(java.lang.String)", "isExternal": True, "hasReceiver": True, "parameterCount": 1},
     ]
 
 
@@ -82,8 +90,9 @@ class AdapterTests(unittest.TestCase):
     def test_receiver_argument_return_and_self_flow_indices(self):
         result = adapter.project(self.loaded(), self.artifact(), methods())
         semantics = {item["methodFullName"]: item for item in result["semantics"]}
-        self.assertEqual(semantics["test.External.instance:java.lang.String(java.lang.String)"]["mappings"], [[0, -1], [0, 0], [1, -1]])
-        self.assertEqual(semantics["test.External.constant:java.lang.String(java.lang.String)"]["mappings"], [])
+        self.assertEqual(semantics["test.External.instance:java.lang.String(java.lang.String)"]["mappings"], [[0, -1], [0, 0], [1, -1], [1, 1]])
+        self.assertEqual(semantics["test.External.constant:java.lang.String(java.lang.String)"]["mappings"], [[0, 0], [1, 1]])
+        self.assertEqual(semantics["test.External.constant:java.lang.String(java.lang.String)"]["csmiTransferMappings"], [])
         self.assertFalse(any(item["regex"] for item in result["semantics"]))
         self.assertEqual(semantics["test.External.constant:java.lang.String(java.lang.String)"]["coverage"]["status"], "complete")
         self.assertEqual(result["csmi"]["defaultProvenance"], "test")
@@ -91,7 +100,7 @@ class AdapterTests(unittest.TestCase):
     def test_static_java_type_qualifier_is_not_a_csmi_receiver(self):
         result = adapter.project(self.loaded(), self.artifact(), methods())
         constant = next(item for item in result["semantics"] if item["methodFullName"].startswith("test.External.constant:"))
-        self.assertEqual(constant["mappings"], [])
+        self.assertEqual(constant["mappings"], [[0, 0], [1, 1]])
 
     def assert_error(self, code, document=None, artifact=None, method_evidence=None):
         with self.assertRaises(adapter.AdapterError) as caught:
@@ -132,15 +141,20 @@ class AdapterTests(unittest.TestCase):
         })
         self.assert_error("unsupported-parameter-writeback", document=document)
 
-    def test_missing_pinned_external_identity_is_not_reconstructed(self):
-        document = base_document()
-        document["semanticModels"][0]["symbols"][0].pop("externalIdentities")
-        self.assert_error("missing-exact-joern-identity", document=document)
+    def test_full_name_must_equal_structurally_projected_identity(self):
+        evidence = methods()
+        evidence[0]["fullName"] = "test.Other.redirect:java.lang.String(java.lang.String)"
+        self.assert_error("unresolved-method-identity", method_evidence=evidence)
 
     def test_unregistered_symbol_scheme_is_unsupported(self):
         document = base_document()
         document["semanticModels"][0]["symbols"][0]["scheme"] = "unregistered.java"
         self.assert_error("unsupported-symbol-scheme", document=document)
+
+    def test_callable_disambiguator_must_match_declared_types(self):
+        document = base_document()
+        document["semanticModels"][0]["symbols"][0]["descriptors"][-1]["disambiguator"] = "()->java.lang.String"
+        self.assert_error("callable-disambiguator-mismatch", document=document)
 
     def test_symbol_artifact_override_must_match(self):
         document = base_document()
@@ -199,11 +213,10 @@ class AdapterTests(unittest.TestCase):
         document["semanticModels"][0]["procedureSummaries"][0]["provenance"] = ["missing"]
         self.assert_error("unresolved-provenance", document=document)
 
-    def test_shared_scenario_reports_generated_pack_unavailable(self):
-        with self.assertRaises(adapter.AdapterError) as caught:
-            adapter.load_scenario_pack(SCENARIO_MANIFEST)
-        self.assertEqual(caught.exception.outcome, "unavailable")
-        self.assertEqual(caught.exception.code, "pack-unavailable")
+    def test_shared_scenario_pack_loads_and_matches_retained_jar(self):
+        loaded, artifact = adapter.load_scenario_pack(SCENARIO_MANIFEST)
+        self.assertEqual(loaded.digest, "97873207ab6ffbc49bafbf4f2f0c08779081529ae1fedabaafb754f60f6fbb76")
+        self.assertEqual(artifact["digests"][0]["value"], "d343c7d2fc3703ac426340bd6c7ae5ed4c414436f197b7a2cc98fc4a9357d8e8")
 
 
 if __name__ == "__main__":

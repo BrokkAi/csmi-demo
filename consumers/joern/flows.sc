@@ -34,7 +34,10 @@ import ujson.*
   new ControlFlow().run(context)
   new TypeRelations().run(context)
   new CallGraph().run(context)
-  new OssDataFlow(OssDataFlowOptions(semantics = semantics)).run(context)
+  // Pass the semantics explicitly as both the layer option and its implicit
+  // constructor argument. Joern 4.0.592 otherwise selects the constructor's
+  // default semantics in this script context and silently ignores the option.
+  new OssDataFlow(OssDataFlowOptions(semantics = semantics))(semantics).run(context)
 
   val labels = ujson.read(Files.readString(Paths.get(labelsFile), StandardCharsets.UTF_8)).obj
   val observations = labels("flows").arr.map { rawFlow =>

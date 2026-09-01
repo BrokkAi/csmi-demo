@@ -54,7 +54,8 @@
     ],
     "formatVersion": "joern-cpg/4.0.592",
     "methodEvidenceSha256": "f25079350e34168b1848dcde573b767236411b49002cf5ec9562c3afc6540b4c",
-    "packEnabled": false
+    "packEnabled": true,
+    "semanticsSha256": "e6e4ffa212c1480bf0aa73ab19308e2a559ba7ae1a3c5b3dbfb24bfd1aec51e3"
   },
   "artifact": {
     "digests": [
@@ -74,28 +75,18 @@
   },
   "counts": {
     "falseNegative": 0,
-    "falsePositive": 1,
-    "trueNegative": 0,
+    "falsePositive": 0,
+    "trueNegative": 1,
     "truePositive": 1
   },
   "flows": [
     {
-      "classification": "FP",
+      "classification": "TN",
       "expectedFlow": false,
       "id": "constant.input-to-return",
-      "observedFlow": true,
-      "pathCount": 1,
-      "paths": [
-        [
-          "source(\"constant.input-to-return\")",
-          "constantInput",
-          "constantInput",
-          "ExternalNormalizer",
-          "ExternalNormalizer.constant(constantInput)",
-          "constant",
-          "constant"
-        ]
-      ]
+      "observedFlow": false,
+      "pathCount": 0,
+      "paths": []
     },
     {
       "classification": "TP",
@@ -108,7 +99,6 @@
           "source(\"normalize.input-to-return\")",
           "normalizeInput",
           "normalizeInput",
-          "ExternalNormalizer",
           "ExternalNormalizer.normalize(normalizeInput)",
           "normalized",
           "normalized"
@@ -119,9 +109,9 @@
   "metrics": {
     "precision": {
       "defined": true,
-      "denominator": 2,
+      "denominator": 1,
       "numerator": 1,
-      "value": 0.5
+      "value": 1.0
     },
     "recall": {
       "defined": true,
@@ -131,10 +121,39 @@
     }
   },
   "pack": {
-    "state": "off"
+    "digest": {
+      "algorithm": "sha-256",
+      "value": "97873207ab6ffbc49bafbf4f2f0c08779081529ae1fedabaafb754f60f6fbb76"
+    },
+    "semanticDocumentDigest": {
+      "algorithm": "sha-256",
+      "value": "ffff74e5ddb9dfa6f66c3b5c6651d2259fffc43db5549f3ffff1eb2de68fb136"
+    },
+    "state": "on"
   },
   "provenance": {
-    "records": []
+    "records": [
+      {
+        "generationMethod": "source-analysis",
+        "id": "bifrost-export",
+        "inputs": [
+          {
+            "digest": {
+              "algorithm": "sha-256",
+              "coverage": "jar",
+              "value": "d343c7d2fc3703ac426340bd6c7ae5ed4c414436f197b7a2cc98fc4a9357d8e8"
+            },
+            "purl": "pkg:maven/ai.brokk.csmi-demo/external-normalize@1.0.0",
+            "role": "target-artifact"
+          }
+        ],
+        "invocationId": "bifrost:f91ef53ee28893f23c3a5843d90abd3177bed9df",
+        "producer": {
+          "identifier": "https://bifrost.brokk.ai/semantic-pack-producer",
+          "version": "0.10.7+f91ef53ee28893f23c3a5843d90abd3177bed9df"
+        }
+      }
+    ]
   },
   "resultFormatVersion": "csmi-demo-consumer-result/1",
   "scenario": {

@@ -22,9 +22,8 @@ CSMI_SCHEMA = "https://csmi.brokk.ai/schema/0.1/schema.json"
 SEMANTIC_MEDIA_TYPE = "application/vnd.csmi.semantic-model.v0.1+json"
 JOERN_IDENTITY_SCHEME = "io.joern.method-full-name"
 JOERN_IDENTITY_VERSION = "4.0.592"
-# Issue #1 owns the scenario's exact Java identity scheme. It has not landed,
-# so production support remains empty rather than blessing an example scheme.
-SUPPORTED_SYMBOL_SCHEMES: frozenset[tuple[str, str]] = frozenset()
+JVM_SYMBOL_SCHEME = ("ai.brokk.csmi.jvm-symbol", "0.1")
+SUPPORTED_SYMBOL_SCHEMES: frozenset[tuple[str, str]] = frozenset({JVM_SYMBOL_SCHEME})
 HEX_256 = re.compile(r"^[0-9a-f]{64}$")
 CSMI_SCHEMA_SHA256 = "99d280864662e947421e0a840d7dbbd81bdf635fedaefaa7e44fa63bd49221b8"
 
@@ -186,19 +185,30 @@ def load_scenario_pack(scenario_path: Path) -> tuple[LoadedPack, dict[str, Any]]
     manifest = object_(read_json(scenario_path, "scenario manifest"), "scenario manifest")
     pack = object_(manifest.get("csmiPack"), "scenario.csmiPack")
     manifest_path = pack.get("manifestPath")
-    expected_digest = pack.get("packDigest")
-    if not isinstance(manifest_path, str) or not manifest_path or not isinstance(expected_digest, str):
+    digest_record = pack.get("packDigest")
+    if not isinstance(manifest_path, str) or not manifest_path or not isinstance(digest_record, dict):
         fail("unavailable", "pack-unavailable", "scenario has no generated CSMI pack identity")
+    if digest_record.get("algorithm") != "sha-256":
+        fail("unsupported", "unsupported-pack-digest", "scenario pack digest must use sha-256")
+    expected_digest = string(digest_record.get("value"), "scenario.csmiPack.packDigest.value")
     resolved_manifest = safe_resource(scenario_path.parent, manifest_path)
     if resolved_manifest.name != "manifest.json":
         fail("unsupported", "unsupported-manifest-name", "CSMI pack manifest must be named manifest.json")
     binary = object_(manifest.get("binaryArtifact"), "scenario.binaryArtifact")
+    binary_path = safe_resource(scenario_path.parent, string(binary.get("path"), "scenario.binaryArtifact.path"))
+    try:
+        actual_binary_digest = sha256(binary_path.read_bytes())
+    except OSError as error:
+        fail("integrity-failure", "artifact-unreadable", f"cannot read analyzed dependency: {error}")
+    declared_binary_digest = string(binary.get("sha256"), "scenario.binaryArtifact.sha256")
+    if not HEX_256.fullmatch(declared_binary_digest) or actual_binary_digest != declared_binary_digest:
+        fail("integrity-failure", "artifact-digest-mismatch", "analyzed dependency does not match scenario identity")
     artifact = {
         "purl": string(binary.get("purl"), "scenario.binaryArtifact.purl"),
         "digests": [{
             "algorithm": "sha-256",
             "coverage": string(binary.get("digestCoverage"), "scenario.binaryArtifact.digestCoverage"),
-            "value": string(binary.get("sha256"), "scenario.binaryArtifact.sha256"),
+            "value": declared_binary_digest,
         }],
     }
     return load_pack(resolved_manifest.parent, expected_digest), artifact
@@ -301,31 +311,89 @@ def provenance_resolver(document: dict[str, Any]):
     return default, records, resolve
 
 
-def joern_identity(model: dict[str, Any], symbol: dict[str, Any], candidate: dict[str, Any]) -> str:
+def descriptor_path(symbol: dict[str, Any], terminal_role: str) -> tuple[list[str], dict[str, Any]]:
+    descriptors = array(symbol.get("descriptors"), "symbol.descriptors")
+    if not descriptors:
+        fail("invalid", "empty-symbol-descriptors", "symbol descriptors must not be empty")
+    terminal = object_(descriptors[-1], "terminal symbol descriptor")
+    if terminal.get("role") != terminal_role:
+        fail("unsupported", "unsupported-symbol-shape", f"symbol must end in a {terminal_role} descriptor")
+    prefix: list[str] = []
+    prefix_roles: list[str] = []
+    for raw_descriptor in descriptors[:-1]:
+        descriptor = object_(raw_descriptor, "symbol descriptor")
+        if descriptor.get("role") not in ("namespace", "type"):
+            fail("unsupported", "unsupported-symbol-shape", "symbol owner contains an unsupported descriptor role")
+        prefix_roles.append(descriptor["role"])
+        prefix.append(string(descriptor.get("name"), "symbol descriptor name"))
+    expected_roles = ["namespace"] * len(prefix_roles) if terminal_role == "type" else ["namespace"] * (len(prefix_roles) - 1) + ["type"]
+    if not prefix_roles or prefix_roles != expected_roles:
+        fail("unsupported", "unsupported-symbol-shape", "JVM symbol must contain namespaces followed by exactly one type")
+    return prefix, terminal
+
+
+def type_name(symbols: dict[str, dict[str, Any]], reference: Any, scheme: tuple[Any, Any]) -> str:
+    reference = object_(reference, "type reference")
+    if reference.get("kind") != "reference":
+        fail("unsupported", "unsupported-type-reference", "Joern identity requires nominal reference types")
+    symbol_id = string(reference.get("symbol"), "type reference symbol")
+    symbol = symbols.get(symbol_id)
+    if symbol is None:
+        fail("invalid", "unresolved-type-reference", f"unresolved type symbol: {symbol_id}")
+    if (symbol.get("scheme"), symbol.get("schemeVersion")) != scheme:
+        fail("invalid", "type-scheme-mismatch", "callable and referenced type use different identity schemes")
+    prefix, terminal = descriptor_path(symbol, "type")
+    return ".".join(prefix + [string(terminal.get("name"), "type descriptor name")])
+
+
+def joern_identity(
+    model: dict[str, Any],
+    symbol: dict[str, Any],
+    declaration: dict[str, Any],
+    symbols: dict[str, dict[str, Any]],
+    candidate: dict[str, Any],
+    methods: list[Any],
+) -> dict[str, Any]:
     check_symbol_scope(model, symbol, candidate)
     scheme = (symbol.get("scheme"), symbol.get("schemeVersion"))
     if scheme not in SUPPORTED_SYMBOL_SCHEMES:
         fail("unsupported", "unsupported-symbol-scheme", f"unsupported callable symbol scheme {scheme[0]} {scheme[1]}")
+    owner_id = string(declaration.get("owner"), "callable declaration owner")
+    owner = symbols.get(owner_id)
+    if owner is None:
+        fail("invalid", "unresolved-callable-owner", f"unresolved callable owner: {owner_id}")
+    owner_prefix, owner_terminal = descriptor_path(owner, "type")
+    if (owner.get("scheme"), owner.get("schemeVersion")) != scheme:
+        fail("invalid", "callable-owner-scheme-mismatch", "callable and owner use different identity schemes")
+    owner_name = ".".join(owner_prefix + [string(owner_terminal.get("name"), "owner type name")])
+    callable_prefix, callable_terminal = descriptor_path(symbol, "callable")
+    if callable_prefix != owner_prefix + [string(owner_terminal.get("name"), "owner type name")]:
+        fail("invalid", "callable-owner-mismatch", "callable descriptor path does not match its declared owner")
+    shape = callable_shape(declaration)
+    parameters = [type_name(symbols, item.get("type"), scheme) for item in shape["parameters"]]
+    results = [type_name(symbols, item.get("type"), scheme) for item in shape["results"]]
+    if len(results) != 1:
+        fail("unsupported", "unsupported-result-shape", "Joern identity requires exactly one normal result")
+    method_name = string(callable_terminal.get("name"), "callable descriptor name")
+    signature = f"{results[0]}({','.join(parameters)})"
+    expected_disambiguator = f"({','.join(parameters)})->{results[0]}"
+    if callable_terminal.get("disambiguator") != expected_disambiguator:
+        fail("invalid", "callable-disambiguator-mismatch", "callable disambiguator does not match its declaration")
+    full_name = f"{owner_name}.{method_name}:{signature}"
     matches = [
-        identity
-        for identity in array(symbol.get("externalIdentities", []), "symbol.externalIdentities")
-        if isinstance(identity, dict)
-        and identity.get("scheme") == JOERN_IDENTITY_SCHEME
-        and identity.get("version") == JOERN_IDENTITY_VERSION
+        method for method in methods
+        if isinstance(method, dict)
+        and method.get("name") == method_name
+        and method.get("signature") == signature
+        and method.get("fullName") == full_name
     ]
     if len(matches) != 1:
-        fail("unsupported", "missing-exact-joern-identity", "callable must have one pinned Joern external identity")
-    return string(matches[0].get("value"), "Joern external identity value")
-
-
-def resolve_method(full_name: str, methods: list[Any]) -> dict[str, Any]:
-    matches = [method for method in methods if isinstance(method, dict) and method.get("fullName") == full_name]
-    if len(matches) != 1:
         code = "unresolved-method-identity" if not matches else "ambiguous-method-identity"
-        fail("incomplete", code, f"expected exactly one Joern METHOD with fullName {full_name!r}, found {len(matches)}")
+        fail("incomplete", code, f"expected exactly one Joern METHOD for {full_name}, found {len(matches)}")
     method = matches[0]
     if method.get("isExternal") is not True:
-        fail("inapplicable", "method-not-external", f"Joern METHOD {full_name!r} is not external")
+        fail("inapplicable", "method-not-external", f"resolved Joern METHOD {full_name} is not external")
+    string(method.get("fullName"), "resolved Joern method fullName")
     return method
 
 
@@ -443,21 +511,29 @@ def project(loaded: LoadedPack, artifact: dict[str, Any], methods: list[Any]) ->
         declaration = declarations.get(callable_id)
         if symbol is None or declaration is None:
             fail("invalid", "unresolved-summary-target", f"summary target {callable_id} is not declared")
-        full_name = joern_identity(model, symbol, artifact)
-        method = resolve_method(full_name, methods)
         shape = callable_shape(declaration)
+        method = joern_identity(model, symbol, declaration, symbols, artifact, methods)
+        full_name = string(method.get("fullName"), "resolved Joern method fullName")
         method_shape_matches(shape, method)
-        mappings: set[tuple[int, int]] = set()
+        # Joern 4.0.592 requires input self-mappings to mark call arguments as
+        # used/defined; without them an empty FlowSemantic still permits
+        # argument-to-argument overpropagation. These operational identities do
+        # not represent CSMI cross-boundary transfers.
+        self_mappings: set[tuple[int, int]] = {(0, 0)}
+        self_mappings.update((position + 1, position + 1) for position in range(len(shape["parameters"])))
+        transfer_mappings: set[tuple[int, int]] = set()
         for raw_transfer in array(summary.get("transfers"), "procedureSummary.transfers"):
             transfer = object_(raw_transfer, "transfer")
             source = slot(object_(transfer.get("source"), "transfer.source"), shape, "input")
             destination = slot(object_(transfer.get("destination"), "transfer.destination"), shape, "output")
-            mappings.add((source, destination))
+            transfer_mappings.add((source, destination))
         coverage = complete[callable_id]
         output.append({
             "methodFullName": full_name,
             "regex": False,
-            "mappings": [list(item) for item in sorted(mappings)],
+            "mappings": [list(item) for item in sorted(self_mappings | transfer_mappings)],
+            "csmiTransferMappings": [list(item) for item in sorted(transfer_mappings)],
+            "joernInputSelfMappings": [list(item) for item in sorted(self_mappings)],
             "summaryProvenance": resolve_provenance(summary),
             "coverage": {
                 "family": "procedure-summaries",

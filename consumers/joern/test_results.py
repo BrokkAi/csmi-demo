@@ -18,23 +18,26 @@ class ResultsTests(unittest.TestCase):
         versions_path = HERE / "versions.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         pack_off = json.loads((HERE / "evidence" / "pack-off.json").read_text(encoding="utf-8"))
-        pack_on = json.loads((HERE / "evidence" / "pack-on-unavailable.json").read_text(encoding="utf-8"))
+        pack_on = json.loads((HERE / "evidence" / "pack-on.json").read_text(encoding="utf-8"))
 
         sha256 = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
         for record in (pack_off, pack_on):
-            self.assertEqual(record["scenario"]["manifestSha256"], sha256(manifest_path))
-            self.assertEqual(record["scenario"]["labelsSha256"], sha256(labels_path))
+            self.assertEqual(record["resultFormatVersion"], "csmi-demo-consumer-result/1")
+            self.assertEqual(record["scenario"]["manifest"]["sha256"], sha256(manifest_path))
+            self.assertEqual(record["scenario"]["labels"]["sha256"], sha256(labels_path))
             self.assertEqual(record["consumer"]["configurationSha256"], sha256(versions_path))
-            self.assertEqual(record["scenario"]["artifact"]["sha256"], manifest["binaryArtifact"]["sha256"])
-        self.assertEqual(pack_off["run"]["status"], "complete")
-        self.assertEqual(pack_on["run"]["diagnostic"], manifest["csmiPack"]["blocker"])
-        self.assertIsNone(pack_on["metrics"])
+            self.assertEqual(record["artifact"]["digests"][0]["value"], manifest["binaryArtifact"]["sha256"])
+        self.assertEqual(pack_off["status"], "complete")
+        self.assertEqual(pack_off["pack"], {"state": "off"})
+        self.assertEqual(pack_on["status"], "complete")
+        self.assertEqual(pack_on["pack"]["digest"], manifest["csmiPack"]["packDigest"])
 
     def evidence_paths(self, root: Path):
         cpg = root / "cpg.bin.zip"
         methods = root / "methods.json"
         cpg.write_bytes(b"same-cpg")
         methods.write_text(json.dumps([{
+            "name": "normalize",
             "fullName": "ai.brokk.csmi.demo.ExternalNormalizer.normalize:java.lang.String(java.lang.String)",
             "signature": "java.lang.String(java.lang.String)",
             "isExternal": True,
@@ -64,17 +67,6 @@ class ResultsTests(unittest.TestCase):
             self.assertEqual(result["metrics"]["recall"]["value"], 1.0)
             self.assertEqual(len(result["analysis"]["externalMethods"]), 1)
 
-    def test_pack_on_unavailable_is_not_counted_as_true_negative(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            cpg, methods = self.evidence_paths(root)
-            record, labels, manifest = results.base_record(SCENARIO, cpg, methods, True)
-            result = results.unavailable(record, labels, manifest)
-            self.assertEqual(result["run"]["status"], "unavailable")
-            self.assertIsNone(result["counts"])
-            self.assertIsNone(result["metrics"])
-            self.assertTrue(all(flow["classification"] == "unresolved" for flow in result["flows"]))
-
     def test_completed_pack_on_requires_applied_adapter_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -93,17 +85,31 @@ class ResultsTests(unittest.TestCase):
                 results.completed(record, labels, observations)
 
             semantics = root / "semantics.json"
+            manifest = json.loads((SCENARIO / "scenario.json").read_text(encoding="utf-8"))
+            semantic_document = json.loads((SCENARIO / "pack" / "semantic-document.json").read_text(encoding="utf-8"))
             semantics.write_text(json.dumps({
                 "outcome": "applied",
-                "csmi": {"packDigest": "a" * 64, "semanticDocumentDigest": "b" * 64},
+                "csmi": {
+                    "packDigest": manifest["csmiPack"]["packDigest"]["value"],
+                    "semanticDocumentDigest": manifest["csmiPack"]["resourceDigests"][0]["value"],
+                    "provenanceRecords": semantic_document["provenanceRecords"],
+                },
             }), encoding="utf-8")
-            result = results.completed(record, labels, observations, semantics)
+            result = results.completed(record, labels, observations, semantics, SCENARIO, manifest)
             self.assertEqual(result["counts"], {"truePositive": 1, "falsePositive": 0, "falseNegative": 0, "trueNegative": 1})
-            self.assertEqual(result["csmiPack"]["packDigest"], "a" * 64)
+            self.assertEqual(result["pack"]["digest"], manifest["csmiPack"]["packDigest"])
+            self.assertEqual(result["analysis"]["semanticsSha256"], hashlib.sha256(semantics.read_bytes()).hexdigest())
+
+            tampered = json.loads(semantics.read_text(encoding="utf-8"))
+            tampered["csmi"]["packDigest"] = "a" * 64
+            semantics.write_text(json.dumps(tampered), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "pack digest does not match"):
+                results.completed(record, labels, observations, semantics, SCENARIO, manifest)
 
             baseline = root / "pack-off.json"
             baseline_record = json.loads(json.dumps(result))
             baseline_record["analysis"]["packEnabled"] = False
+            baseline_record["pack"] = {"state": "off"}
             baseline_record["counts"]["falsePositive"] = 1
             baseline_record["counts"]["trueNegative"] = 0
             baseline.write_text(json.dumps(baseline_record), encoding="utf-8")
@@ -122,6 +128,21 @@ class ResultsTests(unittest.TestCase):
             observations.write_text(json.dumps({"joernVersion": "4.0.592", "packEnabled": False, "flows": []}), encoding="utf-8")
             record, labels, _ = results.base_record(SCENARIO, cpg, methods, False)
             with self.assertRaisesRegex(ValueError, "complete shared label set"):
+                results.completed(record, labels, observations)
+
+    def test_duplicate_observation_ids_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cpg, methods = self.evidence_paths(root)
+            observations = root / "observations.json"
+            duplicate = {"id": "constant.input-to-return", "observed": False, "pathCount": 0, "paths": []}
+            observations.write_text(json.dumps({
+                "joernVersion": "4.0.592",
+                "packEnabled": False,
+                "flows": [duplicate, duplicate],
+            }), encoding="utf-8")
+            record, labels, _ = results.base_record(SCENARIO, cpg, methods, False)
+            with self.assertRaisesRegex(ValueError, "duplicate flow IDs"):
                 results.completed(record, labels, observations)
 
 

@@ -7,6 +7,7 @@ import ujson.*
   importCpg(cpgFile)
   val evidence = Arr.from(cpg.method.map { method =>
     Obj(
+      "name" -> method.name,
       "fullName" -> method.fullName,
       "signature" -> method.signature,
       "isExternal" -> method.isExternal,

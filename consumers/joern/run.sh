@@ -66,12 +66,6 @@ mkdir -p "$OUTPUT_DIR/method-workspace" "$OUTPUT_DIR/pack-off-workspace"
 )
 python3 "$HERE/results.py" --scenario "$SCENARIO_DIR" --cpg "$CPG" --methods "$METHODS" --observations "$OUTPUT_DIR/pack-off-observations.json" --output "$OUTPUT_DIR/pack-off.json"
 
-if ! python3 -c 'import json, sys; p=json.load(open(sys.argv[1], encoding="utf-8"))["csmiPack"]; sys.exit(0 if p.get("manifestPath") and p.get("packDigest") else 1)' "$SCENARIO_MANIFEST"; then
-  python3 "$HERE/results.py" --scenario "$SCENARIO_DIR" --cpg "$CPG" --methods "$METHODS" --pack-enabled --unavailable --output "$OUTPUT_DIR/pack-on.json"
-  echo "pack-on unavailable: shared Bifrost-generated pack has not landed" >&2
-  exit 3
-fi
-
 python3 "$HERE/adapter.py" --scenario "$SCENARIO_MANIFEST" --methods "$METHODS" --output "$SEMANTICS"
 mkdir -p "$OUTPUT_DIR/pack-on-workspace"
 (
