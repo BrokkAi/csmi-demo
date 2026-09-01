@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
-          java-version: '17.0.16+8.0.LTS'
+          java-version: '17.0.16+8'
           cache: maven
       - name: Verify adapter and real pack-off/on scenario
         run: ./mvnw --batch-mode --no-transfer-progress verify
