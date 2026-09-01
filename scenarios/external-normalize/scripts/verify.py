@@ -22,52 +22,62 @@ def check_identity(scenario, record, label):
     path = scenario / record["path"]
     if not path.is_file():
         fail(f"{label} is missing: {record['path']}")
-    if sha256(path) != record["sha256"]:
-        fail(f"{label} digest mismatch")
+    actual = sha256(path)
+    if actual != record["sha256"]:
+        fail(f"{label} digest mismatch: expected {record['sha256']}, found {actual}")
+
+
+def safe_resource(root, relative):
+    path = (root / relative).resolve()
+    if root.resolve() not in path.parents:
+        fail(f"pack resource escapes its root: {relative}")
+    return path
 
 
 def callable_name(symbol):
-    descriptors = symbol["descriptors"]
-    callable_parts = [part for part in descriptors if part.get("role") == "callable"]
-    if len(callable_parts) != 1:
-        fail("callable symbol must have one callable descriptor")
-    callable_part = callable_parts[0]
-    if callable_part.get("disambiguator") != "(java.lang.String)->java.lang.String":
-        fail("callable descriptor has the wrong JVM disambiguator")
-    structural_prefix = [(part.get("role"), part.get("name")) for part in descriptors[:-1]]
-    if structural_prefix != [
+    callables = [d for d in symbol["descriptors"] if d.get("role") == "callable"]
+    if len(callables) != 1 or callables[0].get("name") not in {"constant", "normalize"}:
+        fail(f"unexpected callable descriptor: {callables}")
+    if callables[0].get("disambiguator") != "(java.lang.String)->java.lang.String":
+        fail(f"unexpected callable disambiguator: {callables[0]}")
+    prefix = [(d.get("role"), d.get("name")) for d in symbol["descriptors"][:-1]]
+    if prefix != [
         ("namespace", "ai"),
         ("namespace", "brokk"),
         ("namespace", "csmi"),
         ("namespace", "demo"),
         ("type", "ExternalNormalizer"),
     ]:
-        fail("callable descriptor has the wrong structural identity")
-    return callable_part["name"]
+        fail(f"unexpected callable structural identity: {prefix}")
+    return callables[0]["name"]
 
 
-def verify_pack(scenario, scenario_record):
-    pack_record = scenario_record["csmiPack"]
+def verify_pack(scenario, scenario_manifest):
+    pack_record = scenario_manifest["csmiPack"]
     if pack_record["status"] != "available":
         fail("CSMI pack must be available")
     manifest_path = scenario / pack_record["manifestPath"]
+    if not manifest_path.is_file():
+        fail(f"CSMI manifest is missing: {pack_record['manifestPath']}")
     digest = pack_record["packDigest"]
     if digest["algorithm"] != "sha-256" or sha256(manifest_path) != digest["value"]:
         fail("CSMI manifest digest mismatch")
 
-    manifest = json.loads(manifest_path.read_bytes())
-    if manifest["documentType"] != "pack-manifest":
-        fail("CSMI manifest document type mismatch")
-    if manifest["assembler"] != {
+    pack_manifest = json.loads(manifest_path.read_bytes())
+    if pack_manifest["documentType"] != "pack-manifest":
+        fail("retained CSMI manifest has the wrong document type")
+    if pack_manifest["assembler"] != {
         "identifier": "https://bifrost.brokk.ai/csmi-export",
         "version": f"0.1.0+{PRODUCER_COMMIT}",
     }:
         fail("CSMI assembler identity mismatch")
-    if len(manifest["resources"]) != 1 or len(pack_record["resourceDigests"]) != 1:
-        fail("pack must contain one semantic document")
-    resource = manifest["resources"][0]
-    recorded = pack_record["resourceDigests"][0]
-    if recorded != {
+
+    resources = pack_manifest["resources"]
+    recorded_resources = pack_record["resourceDigests"]
+    if len(resources) != 1 or len(recorded_resources) != 1:
+        fail("pack must contain exactly one semantic-document resource")
+    resource = resources[0]
+    if recorded_resources[0] != {
         "path": f"pack/{resource['path']}",
         "mediaType": resource["mediaType"],
         "size": resource["size"],
@@ -76,59 +86,72 @@ def verify_pack(scenario, scenario_record):
     }:
         fail("scenario and manifest resource identities disagree")
     if resource["role"] != "semantic-document" or resource["mediaType"] != "application/vnd.csmi.semantic-model.v0.1+json":
-        fail("CSMI resource role or media type mismatch")
-    resource_path = (manifest_path.parent / resource["path"]).resolve()
-    if manifest_path.parent.resolve() not in resource_path.parents:
-        fail("CSMI resource escapes the pack root")
-    if resource_path.stat().st_size != resource["size"]:
-        fail("CSMI resource size mismatch")
+        fail("pack resource has the wrong role or media type")
+    resource_path = safe_resource(manifest_path.parent, resource["path"])
+    if not resource_path.is_file() or resource_path.stat().st_size != resource["size"]:
+        fail("pack resource is missing or has the wrong size")
     if resource["digest"]["algorithm"] != "sha-256" or sha256(resource_path) != resource["digest"]["value"]:
-        fail("CSMI resource digest mismatch")
+        fail("pack resource digest mismatch")
 
     document = json.loads(resource_path.read_bytes())
-    if document["documentType"] != "semantic-document" or document["semanticModelVersion"] != "0.1" or document["serializationVersion"] != "0.1-json":
-        fail("CSMI semantic document version mismatch")
+    if document["documentType"] != "semantic-document":
+        fail("pack resource has the wrong document type")
+    if document["semanticModelVersion"] != "0.1" or document["serializationVersion"] != "0.1-json":
+        fail("pack resource has the wrong CSMI version")
     provenance = document["provenanceRecords"]
     if len(provenance) != 1 or provenance[0]["invocationId"] != f"bifrost:{PRODUCER_COMMIT}":
-        fail("CSMI producer revision mismatch")
+        fail("pack producer revision mismatch")
     if provenance[0]["producer"] != {
         "identifier": "https://bifrost.brokk.ai/semantic-pack-producer",
         "version": f"0.10.7+{PRODUCER_COMMIT}",
     }:
-        fail("CSMI producer identity mismatch")
+        fail("semantic model producer identity mismatch")
 
     models = document["semanticModels"]
     if len(models) != 1:
-        fail("pack must contain one semantic model")
+        fail("pack must contain exactly one semantic model")
     model = models[0]
-    artifact = scenario_record["binaryArtifact"]
+    binary = scenario_manifest["binaryArtifact"]
     exact_digest = {
         "algorithm": "sha-256",
-        "coverage": artifact["digestCoverage"],
-        "value": artifact["sha256"],
+        "coverage": binary["digestCoverage"],
+        "value": binary["sha256"],
     }
-    if model["artifactSelectors"] != [{"digests": [exact_digest], "purl": artifact["purl"]}]:
-        fail("CSMI artifact selector does not match the retained JAR")
-    if provenance[0]["inputs"] != [{"digest": exact_digest, "purl": artifact["purl"], "role": "target-artifact"}]:
-        fail("CSMI provenance does not match the retained JAR")
+    selector = [{"digests": [exact_digest], "purl": binary["purl"]}]
+    if model["artifactSelectors"] != selector:
+        fail("pack does not apply to the exact retained JAR identity")
+    if provenance[0]["inputs"] != [{
+        "digest": exact_digest,
+        "purl": binary["purl"],
+        "role": "target-artifact",
+    }]:
+        fail("producer provenance does not identify the exact retained JAR")
 
     callables = {}
     for symbol in model["symbols"]:
-        if any(part.get("role") == "callable" for part in symbol["descriptors"]):
+        if any(d.get("role") == "callable" for d in symbol["descriptors"]):
             callables[callable_name(symbol)] = symbol["id"]
     if set(callables) != {"constant", "normalize"}:
-        fail("unexpected CSMI callable inventory")
+        fail(f"unexpected callable symbols: {sorted(callables)}")
+
     summaries = {summary["callable"]: summary for summary in model["procedureSummaries"]}
-    if summaries.get(callables["constant"]) != {"callable": callables["constant"], "transfers": []}:
+    if summaries.get(callables["constant"]) != {
+        "callable": callables["constant"],
+        "transfers": [],
+    }:
         fail("constant must have an explicit empty transfer set")
     transfer = {
         "destination": {"root": {"phase": "output", "position": 0, "role": "result"}},
         "source": {"root": {"phase": "input", "position": 0, "role": "parameter"}},
     }
-    if summaries.get(callables["normalize"]) != {"callable": callables["normalize"], "transfers": [transfer]}:
+    if summaries.get(callables["normalize"]) != {
+        "callable": callables["normalize"],
+        "transfers": [transfer],
+    }:
         fail("normalize must contain exactly parameter[0] -> normal result[0]")
     if set(summaries) != set(callables.values()):
-        fail("CSMI summary inventory does not match its callables")
+        fail("procedure-summary inventory does not match callable inventory")
+
     complete = {
         statement["scope"]["callable"]
         for statement in model["completenessStatements"]
@@ -137,65 +160,70 @@ def verify_pack(scenario, scenario_record):
         and set(statement.get("scope", {})) == {"callable"}
     }
     if complete != set(callables.values()):
-        fail("both summaries require callable-scoped complete coverage")
+        fail("both callables require callable-scoped complete procedure-summary coverage")
 
 
 def main():
     if len(sys.argv) > 2:
         fail("usage: verify.py [SCENARIO_ROOT]")
     scenario = Path(sys.argv[1]).resolve() if len(sys.argv) == 2 else DEFAULT_SCENARIO
-    record = json.loads((scenario / "scenario.json").read_text())
-    if record["scenario"]["status"] != "materialized":
+    manifest = json.loads((scenario / "scenario.json").read_text())
+    if manifest["scenario"]["status"] != "materialized":
         fail("scenario must be materialized")
-    check_identity(scenario, record["scenario"]["labels"], "labels")
-    check_identity(scenario, record["sourceArtifact"], "audit source")
-    check_identity(scenario, record["binaryArtifact"], "binary artifact")
-    check_identity(scenario, record["applicationArtifact"], "application source")
-    check_identity(scenario, record["producerInput"], "Bifrost producer input")
-    if sha256(scenario / record["build"]["script"]) != record["build"]["scriptSha256"]:
+
+    check_identity(scenario, manifest["scenario"]["labels"], "labels")
+    check_identity(scenario, manifest["sourceArtifact"], "audit source")
+    check_identity(scenario, manifest["binaryArtifact"], "binary artifact")
+    check_identity(scenario, manifest["applicationArtifact"], "application source")
+    check_identity(scenario, manifest["producerInput"], "Bifrost producer input")
+    if sha256(scenario / manifest["build"]["script"]) != manifest["build"]["scriptSha256"]:
         fail("build script digest mismatch")
 
-    boundary = record["analyzerBoundary"]
+    boundary = manifest["analyzerBoundary"]
     input_root = (scenario / boundary["inputRoot"]).resolve()
     included = sorted(str(path.relative_to(scenario)) for path in input_root.rglob("*") if path.is_file())
     if included != sorted(boundary["includedPaths"]):
-        fail("analyzer input inventory mismatch")
+        fail(f"analyzer input inventory mismatch: {included}")
     for excluded in boundary["excludedRoots"]:
         excluded_root = (scenario / excluded).resolve()
         if excluded_root == input_root or input_root in excluded_root.parents:
             fail(f"excluded root enters analyzer input: {excluded}")
 
-    with zipfile.ZipFile(scenario / record["binaryArtifact"]["path"]) as jar:
+    with zipfile.ZipFile(scenario / manifest["binaryArtifact"]["path"]) as jar:
         names = jar.namelist()
-        if "ai/brokk/csmi/demo/ExternalNormalizer.class" not in names:
-            fail("opaque JAR is missing ExternalNormalizer.class")
-        if any(name.endswith(".java") or "audit-source" in name for name in names):
-            fail("opaque JAR leaks audit source")
+        expected_class = "ai/brokk/csmi/demo/ExternalNormalizer.class"
+        if expected_class not in names:
+            fail(f"opaque JAR is missing {expected_class}")
+        leaked = [name for name in names if name.endswith(".java") or "audit-source" in name]
+        if leaked:
+            fail(f"opaque JAR leaks source paths: {leaked}")
 
     labels = json.loads((scenario / "labels.json").read_text())
     expectations = {flow["id"]: flow["expected"] for flow in labels["flows"]}
     if expectations != {"constant.input-to-return": False, "normalize.input-to-return": True}:
-        fail("unexpected label contract")
+        fail(f"unexpected label contract: {expectations}")
 
-    producer = json.loads((scenario / record["producerInput"]["path"]).read_text())
+    producer = json.loads((scenario / manifest["producerInput"]["path"]).read_text())
     if producer["provenance"]["revision"] != f"bifrost:{PRODUCER_COMMIT}":
-        fail("authored producer revision mismatch")
-    shards = [shard for shard in producer["shards"] if shard["payload"]["kind"] == "procedure_summaries"]
+        fail("authored producer input revision mismatch")
+    shards = [s for s in producer["shards"] if s["payload"]["kind"] == "procedure_summaries"]
     if len(shards) != 1:
         fail("producer input must contain one procedure-summary shard")
-    authored = {summary["target"]["symbol"]: summary for summary in shards[0]["payload"]["summaries"]}
+    authored = {s["target"]["symbol"]: s for s in shards[0]["payload"]["summaries"]}
     if authored["constant"].get("completeness") != "complete" or authored["constant"].get("transfers") != []:
-        fail("authored constant summary must be complete and empty")
+        fail("authored constant summary must be a complete empty transfer set")
     expected = {
         "input": {"kind": "parameter", "ordinal": 0},
         "exit_kind": "normal",
         "output": {"kind": "normal_return"},
     }
     if authored["normalize"].get("completeness") != "complete" or authored["normalize"].get("transfers") != [expected]:
-        fail("authored normalize summary mismatch")
-    if record["csmiProducer"]["commit"] != PRODUCER_COMMIT or record["csmiProducer"]["api"] != "export_authored_csmi_pack":
-        fail("scenario producer identity mismatch")
-    verify_pack(scenario, record)
+        fail("authored normalize summary must contain parameter[0] -> normal return")
+
+    producer_record = manifest["csmiProducer"]
+    if producer_record["commit"] != PRODUCER_COMMIT or producer_record["api"] != "export_authored_csmi_pack":
+        fail("scenario CSMI producer identity mismatch")
+    verify_pack(scenario, manifest)
     print("verified deterministic external-normalize fixture and exact Bifrost-generated CSMI pack")
 
 
