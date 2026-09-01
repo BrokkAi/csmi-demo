@@ -24,77 +24,76 @@ import soot.jimple.StringConstant;
 
 final class FlowDroidScenarioRunnerTest {
     private static final Path SCENARIO = Path.of("../..", "scenarios", "external-normalize").toAbsolutePath().normalize();
-    private static final String CONSUMER_REVISION = "0123456789abcdef0123456789abcdef01234567";
+    private static final String PACK_DIGEST = "97873207ab6ffbc49bafbf4f2f0c08779081529ae1fedabaafb754f60f6fbb76";
 
     @TempDir Path temporaryDirectory;
 
     @Test
-    void packOffUsesOnlyCompiledAnalyzerInputAndEmitsExpectedEvidence() throws Exception {
-        Path classes = temporaryDirectory.resolve("classes");
-        Path opaqueJar = SCENARIO.resolve("analyzer-input/lib/external-normalize-1.0.0.jar");
-        FlowDroidPackOffCli.compileApplication(
-                SCENARIO.resolve("analyzer-input/src/main/java/ai/brokk/csmi/demo/ScenarioApplication.java"),
-                opaqueJar,
-                classes);
+    void identicalPackOffAndOnRunsEmitContractAndRecoverOnlyPositiveFlow() throws Exception {
+        Path offPath = temporaryDirectory.resolve("pack-off.json");
+        Path onPath = temporaryDirectory.resolve("pack-on.json");
+        FlowDroidScenarioCli.run(SCENARIO, offPath, "off");
+        FlowDroidScenarioCli.run(SCENARIO, onPath, "on");
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode off = mapper.readTree(offPath.toFile());
+        JsonNode on = mapper.readTree(onPath.toFile());
 
-        assertTrue(Files.isRegularFile(classes.resolve("ai/brokk/csmi/demo/ScenarioApplication.class")));
-        assertFalse(Files.exists(classes.resolve("ai/brokk/csmi/demo/ExternalNormalizer.class")),
-                "the audit-source implementation must not enter the application classes");
-
-        Path evidencePath = temporaryDirectory.resolve("pack-off.json");
-        FlowDroidPackOffCli.run(SCENARIO, evidencePath, CONSUMER_REVISION);
-        JsonNode evidence = new ObjectMapper().readTree(evidencePath.toFile());
-
-        assertEquals("complete", evidence.path("status").textValue());
-        assertEquals(CONSUMER_REVISION, evidence.at("/consumer/sourceRevision").textValue());
-        assertFalse(evidence.at("/pack/enabled").booleanValue());
-        assertEquals(0, evidence.at("/counts/truePositive").intValue());
-        assertEquals(1, evidence.at("/counts/trueNegative").intValue());
-        assertEquals(0, evidence.at("/counts/falsePositive").intValue());
-        assertEquals(1, evidence.at("/counts/falseNegative").intValue());
-        assertEquals(0, evidence.at("/metrics/precision/denominator").intValue());
-        assertFalse(evidence.at("/metrics/precision/defined").booleanValue());
-        assertTrue(evidence.at("/metrics/precision/value").isNull());
-        assertEquals(0, evidence.at("/termination/flowDroidState").intValue());
-        assertTrue(evidence.at("/termination/externalClassExcludedWithoutBodies").booleanValue());
-        assertEquals("unavailable", evidence.at("/pack/status").textValue());
-        assertEquals("0.1", evidence.at("/csmi/semanticModelVersion").textValue());
-        assertEquals(
-                "9b09ac88adb5acb4a960b7e7ea613a4a89758cb96f139395231cb926bb929d85",
-                evidence.at("/scenario/manifestSha256").textValue());
-        assertEquals(1, evidence.at("/metrics/recall/denominator").intValue());
-        assertEquals(0.0, evidence.at("/metrics/recall/value").doubleValue());
-        assertTrue(evidence.path("flows").findValues("observed").stream().noneMatch(JsonNode::booleanValue),
-                "pack-off must miss normalize and retain the constant near-miss as a true negative");
+        assertEquals("csmi-demo-consumer-result/1", off.path("resultFormatVersion").textValue());
+        assertEquals("complete", off.path("status").textValue());
+        assertEquals(off.path("consumer"), on.path("consumer"));
+        assertEquals(off.path("analysis"), on.path("analysis"), "only CSMI-derived semantics may be toggled");
+        assertEquals(off.path("scenario"), on.path("scenario"));
+        assertEquals(off.path("artifact"), on.path("artifact"));
+        assertEquals("off", off.at("/pack/state").textValue());
+        assertEquals("on", on.at("/pack/state").textValue());
+        assertEquals(PACK_DIGEST, on.at("/pack/digest/value").textValue());
+        assertEquals("ffff74e5ddb9dfa6f66c3b5c6651d2259fffc43db5549f3ffff1eb2de68fb136",
+                on.at("/pack/semanticDocumentSha256").textValue());
+        assertCounts(off, 0, 1, 0, 1);
+        assertCounts(on, 1, 1, 0, 0);
+        assertEquals(List.of("TN", "FN"), off.path("flows").findValuesAsText("classification"));
+        assertEquals(List.of("TN", "TP"), on.path("flows").findValuesAsText("classification"));
+        assertFalse(off.at("/metrics/precision/defined").booleanValue());
+        assertEquals(0, off.at("/metrics/precision/denominator").intValue());
+        assertEquals(1.0, on.at("/metrics/precision/value").doubleValue());
+        assertEquals(1.0, on.at("/metrics/recall/value").doubleValue());
+        assertEquals(0, off.at("/provenance/records").size());
+        assertEquals(1, on.at("/provenance/records").size());
+        assertEquals("bifrost:f91ef53ee28893f23c3a5843d90abd3177bed9df",
+                on.at("/provenance/records/0/invocationId").textValue());
+        assertTrue(on.at("/termination/externalClassExcludedWithoutBodies").booleanValue());
     }
 
     @Test
-    void rejectsChangedFixtureBytesBeforeAnalysis() throws Exception {
-        Path copiedScenario = temporaryDirectory.resolve("scenario");
-        copyRecursively(SCENARIO, copiedScenario);
-        Files.writeString(
-                copiedScenario.resolve("analyzer-input/src/main/java/ai/brokk/csmi/demo/ScenarioApplication.java"),
-                "\n// changed after manifest creation\n",
-                java.nio.file.StandardOpenOption.APPEND);
+    void compilesOnlyExactApplicationAndRejectsChangedFixtureBytes() throws Exception {
+        Path classes = temporaryDirectory.resolve("classes");
+        Path jar = SCENARIO.resolve("analyzer-input/lib/external-normalize-1.0.0.jar");
+        FlowDroidScenarioCli.compileApplication(
+                SCENARIO.resolve("analyzer-input/src/main/java/ai/brokk/csmi/demo/ScenarioApplication.java"), jar, classes);
+        assertTrue(Files.isRegularFile(classes.resolve("ai/brokk/csmi/demo/ScenarioApplication.class")));
+        assertFalse(Files.exists(classes.resolve("ai/brokk/csmi/demo/ExternalNormalizer.class")));
 
-        IllegalArgumentException failure = assertThrows(
-                IllegalArgumentException.class,
-                () -> FlowDroidPackOffCli.run(
-                        copiedScenario, temporaryDirectory.resolve("result.json"), CONSUMER_REVISION));
-        assertTrue(failure.getMessage().contains("analyzer application source SHA-256 mismatch"));
+        Path copy = temporaryDirectory.resolve("scenario");
+        copyRecursively(SCENARIO, copy);
+        Files.writeString(copy.resolve("pack/semantic-document.json"), "\n", java.nio.file.StandardOpenOption.APPEND);
+        AdapterException failure = assertThrows(
+                AdapterException.class,
+                () -> FlowDroidScenarioCli.run(copy, temporaryDirectory.resolve("result.json"), "on"));
+        assertTrue(failure.getMessage().contains("semantic document size mismatch"));
     }
 
-    private static void copyRecursively(Path source, Path destination) throws Exception {
-        try (var paths = Files.walk(source)) {
-            for (Path path : paths.toList()) {
-                Path target = destination.resolve(source.relativize(path));
-                if (Files.isDirectory(path)) {
-                    Files.createDirectories(target);
-                } else {
-                    Files.copy(path, target);
-                }
-            }
-        }
+    @Test
+    void exactBindingsMatchSharedJvmIdentityAndRejectNearMiss() {
+        var bindings = FlowDroidScenarioCli.methodBindings();
+        assertEquals(List.of("constant", "normalize"), bindings.stream()
+                .map(binding -> binding.descriptors().get(binding.descriptors().size() - 1).name())
+                .toList());
+        assertEquals("ai.brokk.csmi.jvm-symbol", bindings.get(0).scheme());
+        assertEquals("java.lang.String constant(java.lang.String)", bindings.get(0).sootSubSignature());
+        assertThrows(IllegalArgumentException.class, () -> new CsmiFlowDroidAdapter.MethodBinding(
+                bindings.get(0).scheme(), bindings.get(0).schemeVersion(), bindings.get(0).stability(),
+                bindings.get(0).descriptors(), bindings.get(0).sootClass(),
+                "java.lang.String constant(java.lang.Object)", bindings.get(0).parameterTypes(), bindings.get(0).returnType()));
     }
 
     @Test
@@ -104,54 +103,45 @@ final class FlowDroidScenarioRunnerTest {
             application = new SootClass(FlowDroidScenarioRunner.APPLICATION_CLASS, Modifier.PUBLIC);
             Scene.v().addClass(application);
         }
-        SootMethod sourceMethod = application.getMethodUnsafe("java.lang.String source(java.lang.String)");
-        if (sourceMethod == null) {
-            RefType stringType = RefType.v("java.lang.String");
-            sourceMethod = new SootMethod(
-                    "source", List.of(stringType), stringType, Modifier.PRIVATE | Modifier.STATIC);
-            application.addMethod(sourceMethod);
+        RefType stringType = RefType.v("java.lang.String");
+        SootMethod source = application.getMethodUnsafe("java.lang.String source(java.lang.String)");
+        if (source == null) {
+            source = new SootMethod("source", List.of(stringType), stringType, Modifier.PRIVATE | Modifier.STATIC);
+            application.addMethod(source);
         }
-        SootMethod sinkMethod = application.getMethodUnsafe("void sink(java.lang.String,java.lang.String)");
-        if (sinkMethod == null) {
-            RefType stringType = RefType.v("java.lang.String");
-            sinkMethod = new SootMethod(
-                    "sink", List.of(stringType, stringType), VoidType.v(), Modifier.PRIVATE | Modifier.STATIC);
-            application.addMethod(sinkMethod);
+        SootMethod sink = application.getMethodUnsafe("void sink(java.lang.String,java.lang.String)");
+        if (sink == null) {
+            sink = new SootMethod("sink", List.of(stringType, stringType), VoidType.v(), Modifier.PRIVATE | Modifier.STATIC);
+            application.addMethod(sink);
         }
-        Local resultValue = Jimple.v().newLocal("result", RefType.v("java.lang.String"));
-        var sourceStatement = Jimple.v().newAssignStmt(
-                resultValue,
-                Jimple.v().newStaticInvokeExpr(
-                        sourceMethod.makeRef(), StringConstant.v("normalize.input-to-return")));
+        Local resultValue = Jimple.v().newLocal("result", stringType);
+        var sourceStatement = Jimple.v().newAssignStmt(resultValue, Jimple.v().newStaticInvokeExpr(
+                source.makeRef(), StringConstant.v("normalize.input-to-return")));
         var sinkStatement = Jimple.v().newInvokeStmt(Jimple.v().newStaticInvokeExpr(
-                sinkMethod.makeRef(),
-                StringConstant.v("normalize.input-to-return"),
-                resultValue));
-        assertEquals(
-                new FlowDroidScenarioRunner.LabelFlow(
-                        "normalize.input-to-return", "normalize.input-to-return"),
+                sink.makeRef(), StringConstant.v("normalize.input-to-return"), resultValue));
+        assertEquals(new FlowDroidScenarioRunner.LabelFlow(
+                "normalize.input-to-return", "normalize.input-to-return"),
                 FlowDroidScenarioRunner.extractLabels(sourceStatement, sinkStatement));
-
-        Local dynamicLabel = Jimple.v().newLocal("dynamicLabel", RefType.v("java.lang.String"));
-        var malformedSource = Jimple.v().newAssignStmt(
-                resultValue, Jimple.v().newStaticInvokeExpr(sourceMethod.makeRef(), dynamicLabel));
-        IllegalArgumentException failure =
-                assertThrows(
-                        IllegalArgumentException.class,
-                        () -> FlowDroidScenarioRunner.extractLabels(malformedSource, sinkStatement));
-        assertTrue(failure.getMessage().contains("not a non-empty string constant"));
+        Local dynamic = Jimple.v().newLocal("dynamic", stringType);
+        var malformed = Jimple.v().newAssignStmt(
+                resultValue, Jimple.v().newStaticInvokeExpr(source.makeRef(), dynamic));
+        assertThrows(IllegalArgumentException.class, () -> FlowDroidScenarioRunner.extractLabels(malformed, sinkStatement));
     }
 
-    @Test
-    void cliRejectsPackOnBeforeReadingScenario() {
-        IllegalArgumentException failure = assertThrows(
-                IllegalArgumentException.class,
-                () -> FlowDroidPackOffCli.main(new String[] {
-                    "--scenario", SCENARIO.toString(),
-                    "--output", temporaryDirectory.resolve("result.json").toString(),
-                    "--pack", "on",
-                    "--consumer-revision", CONSUMER_REVISION
-                }));
-        assertTrue(failure.getMessage().contains("only --pack off"));
+    private static void assertCounts(JsonNode result, int tp, int tn, int fp, int fn) {
+        assertEquals(tp, result.at("/counts/truePositive").intValue());
+        assertEquals(tn, result.at("/counts/trueNegative").intValue());
+        assertEquals(fp, result.at("/counts/falsePositive").intValue());
+        assertEquals(fn, result.at("/counts/falseNegative").intValue());
+    }
+
+    private static void copyRecursively(Path source, Path destination) throws Exception {
+        try (var paths = Files.walk(source)) {
+            for (Path path : paths.toList()) {
+                Path target = destination.resolve(source.relativize(path));
+                if (Files.isDirectory(path)) Files.createDirectories(target);
+                else Files.copy(path, target);
+            }
+        }
     }
 }

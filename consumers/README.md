@@ -11,8 +11,8 @@ details local and apply them to the shared analyzer-neutral scenario contract.
 
 ## Consumers
 
-- [`flowdroid/`](flowdroid/) — a pinned FlowDroid/Soot adapter with reproducible
-  pack-off evidence.
+- [`flowdroid/`](flowdroid/) — a pinned FlowDroid/Soot adapter with retained
+  shared-scenario pack-off and pack-on interoperability results.
 - [`minimal-dataflow/`](minimal-dataflow/) — a small graph consumer with
   complete diagnostic semantics coverage and retained shared-scenario pack-off
   and pack-on interoperability results.

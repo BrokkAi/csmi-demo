@@ -1,85 +1,80 @@
 # FlowDroid consumer
 
-This directory contains the pinned CSMI-to-FlowDroid adapter and the runnable
-pack-off half of the shared `external-normalize` scenario from
-[issue #5](https://github.com/BrokkAi/csmi-demo/issues/5). The pack-on half is
-still blocked: the shared scenario records no generated CSMI pack because
-[Bifrost issue #2841](https://github.com/BrokkAi/bifrost-dev/issues/2841)
-prevents export of its complete empty `constant` summary. No hand-authored pack
-or substitute transfer is used here.
+This directory contains a strict CSMI v0.1 adapter for FlowDroid `2.15.1` and
+Soot `4.7.1`, plus retained pack-off/on results for the shared
+`external-normalize` scenario from issue #5. FlowDroid and Soot remain external
+LGPL-2.1 Maven dependencies; no implementation source is copied into this
+Apache-2.0 repository.
 
-## Pinned environment and dependencies
+## Pinned environment
 
 - Eclipse Temurin JDK `17.0.16+8`
-- Apache Maven `3.9.11`, downloaded by the script-only Maven wrapper with a
-  pinned distribution SHA-256
+- Apache Maven `3.9.11`, via the script-only wrapper and pinned distribution
+  SHA-256
 - FlowDroid `2.15.1`, upstream tag commit
   `4d8702611abf64b12a6c7c5e662c201add748bd9`
-- Soot `4.7.1`, resolved transitively by FlowDroid
+- Soot `4.7.1`, resolved transitively
 
-The Maven enforcer rejects other JDK and Maven versions. FlowDroid remains an
-external LGPL-2.1 Maven dependency; no FlowDroid or Soot implementation source
-is copied into this Apache-2.0 repository.
-
-## Pack-off run
-
-From this directory, with the pinned JDK selected:
+The Maven enforcer rejects other Java and Maven versions. From this directory:
 
 ```sh
 ./mvnw --batch-mode --no-transfer-progress verify
-./mvnw --batch-mode --no-transfer-progress -q compile exec:java \
-  -Dexec.mainClass=ai.brokk.csmi.flowdroid.FlowDroidPackOffCli \
-  -Dexec.args="--scenario ../../scenarios/external-normalize --output results/pack-off.json --pack off --consumer-revision $(git rev-parse HEAD)"
+./scripts/run-shared-scenario.sh
 ```
 
-The CLI reads the scenario and shared labels in place. Before analysis it
-verifies the manifest-recorded SHA-256 values for the opaque JAR, analyzer
-application source, and labels. It compiles only the exact analyzer application
-source with only the opaque JAR on the compiler classpath. The audit source is
-never traversed or compiled.
+The scenario script runs identical FlowDroid inputs and configuration twice.
+The opaque JAR remains on the library path, its implementation source remains
+outside the analyzer input, and `ExternalNormalizer` is excluded with no active
+bodies. Only the CSMI-derived `SummaryTaintWrapper` changes between pack off and
+pack on. Shared scenario assets, labels, and pack bytes are read in place rather
+than copied into this consumer.
 
-FlowDroid receives the compiled application as its application path and the
-opaque JAR as its library path. It uses CHA, one analysis thread, bounded
-timeouts, exact source/sink and entry-point signatures, and excludes only
-`ai.brokk.csmi.demo.ExternalNormalizer` with no bodies for excluded code. Source
-and sink definitions stay consumer-local and are not treated as CSMI facts.
+## Exact CSMI boundary
 
-The retained local result is [`evidence/pack-off.json`](evidence/pack-off.json).
-It records the exact consumer revision, scenario, fixture, dependency,
-environment, configuration, termination, and per-label identities. The
-complete pack-off result is:
+Before pack-on analysis, the consumer validates the scenario, pack manifest,
+resource size and SHA-256, media type, artifact PURL and exact JAR digest. It
+maps the landed `ai.brokk.csmi.jvm-symbol` structural identities to exactly:
 
-| Label | Expected | Observed | Classification |
-| --- | ---: | ---: | --- |
-| `constant.input-to-return` | false | false | TN |
-| `normalize.input-to-return` | true | false | FN |
+- `java.lang.String constant(java.lang.String)`
+- `java.lang.String normalize(java.lang.String)`
 
-Counts are TP 0, TN 1, FP 0, FN 1. Precision is undefined because its
-denominator is zero; recall is `0/1 = 0`. This establishes the required
-pack-off difference without claiming any pack-on result.
+The adapter supports only complete, unprojected parameter-to-normal-result
+may-information transfers required by this scenario. `normalize` becomes one
+FlowDroid parameter-to-return `MethodFlow`; the complete empty `constant`
+summary becomes FlowDroid's exact-method exclusion. The exclusion does not mark
+the class complete. Artifact mismatch, ambiguous structural binding,
+incomplete evidence, projections, unsupported required vocabularies,
+compatibility constraints, consumer-resolved dependencies, and unresolved
+provenance fail closed.
 
-## Adapter boundary and remaining blocker
+Generated FlowDroid summary objects are disposable runtime material. The
+retained pack-on result records the exact CSMI manifest digest, semantic
+document digest, producer identity, input artifact identity, and provenance
+record used to create them; those objects never become another semantic source
+of truth.
 
-The adapter supports only the CSMI 0.1 slice required by this scenario:
-unprojected `input parameter[n] -> output result[0]` may-information transfers,
-and a complete empty `procedure-summaries` set. It matches the exact artifact
-PURL, digest coverage and SHA-256, symbol scheme/version/stability and ordered
-descriptors, callable shape, and exactly one configured Soot class plus method
-subsignature. Artifact mismatch, ambiguity, incomplete coverage, unsupported
-roots or projections, and required vocabularies fail closed.
+## Retained evidence
 
-Positive transfers become FlowDroid `MethodFlow` values in an in-memory
-`MemorySummaryProvider`. A complete empty set becomes an exact-method exclusion;
-the wrapper does not mark the whole class complete. Generated FlowDroid summary
-material is therefore disposable and remains traceable to the input CSMI digest
-rather than becoming a second semantic source of truth.
+[`results/pack-off.json`](results/pack-off.json) and
+[`results/pack-on.json`](results/pack-on.json) implement the repository
+`csmi-demo-consumer-result/1` contract. They retain exact tool, operating-system,
+scenario, analyzer-configuration, artifact, pack, and provenance identities.
+The per-flow result is:
 
-The adapter tests prove that this pinned API can represent both meanings and
-cover identity, index mapping, artifact mismatch, ambiguity, unsupported
-semantics, and incomplete evidence. They are not pack-on evidence. Once the
-Bifrost-generated pack exists, the remaining work is to validate its exact
-bytes against the pinned normative schema, invoke this adapter, rerun the same
-analysis with only its summary provider enabled, retain pack-on evidence, and
-compare the two results. Until then the CLI rejects `--pack on`, CI runs only
-the honest pack-off scenario, and issue #5's full acceptance criteria remain
-blocked.
+| Label | Pack off | Pack on |
+| --- | --- | --- |
+| `constant.input-to-return` | TN | TN |
+| `normalize.input-to-return` | FN | TP |
+
+Pack off has TP 0, TN 1, FP 0, FN 1. Its precision is undefined because the
+denominator is zero, and recall is `0/1`. Pack on has TP 1, TN 1, FP 0, FN 0,
+with precision and recall both `1/1`. The negative near miss remains negative;
+the exact CSMI transfer recovers only the positive flow.
+
+Focused tests cover exact method identity and parameter/result mapping,
+complete-empty exclusion, artifact mismatch, ambiguous binding, structural
+near misses, incomplete coverage, projections, invalid indices, required
+vocabularies, changed pack bytes, analyzer-source isolation, strict label
+extraction, provenance, and the real pack-off/on transition. The shared
+scenario verifier independently validates its deterministic fixture, pack,
+producer, boundary, and hashes.

@@ -62,9 +62,14 @@ public final class CsmiFlowDroidAdapter {
 
     public record Descriptor(String role, String name, String disambiguator) {}
 
-    public record Trace(String semanticDocumentSha256, ArtifactIdentity artifact, Set<String> callableSymbols) {
+    public record Trace(
+            String semanticDocumentSha256,
+            ArtifactIdentity artifact,
+            Set<String> callableSymbols,
+            List<JsonNode> provenanceRecords) {
         public Trace {
             callableSymbols = Set.copyOf(callableSymbols);
+            provenanceRecords = provenanceRecords.stream().map(record -> (JsonNode) record.deepCopy()).toList();
         }
     }
 
@@ -83,6 +88,11 @@ public final class CsmiFlowDroidAdapter {
         requireText(root, "schema", SCHEMA);
         requireText(root, "semanticModelVersion", "0.1");
         requireText(root, "serializationVersion", "0.1-json");
+        Map<String, JsonNode> provenance = uniqueById(requiredArray(root, "provenanceRecords"), "provenance record");
+        String defaultProvenance = text(root, "defaultProvenance");
+        if (defaultProvenance != null && !provenance.containsKey(defaultProvenance)) {
+            throw new AdapterException("default provenance is unresolved");
+        }
 
         JsonNode models = requiredArray(root, "semanticModels");
         List<JsonNode> applicable = new ArrayList<>();
@@ -96,11 +106,17 @@ public final class CsmiFlowDroidAdapter {
         }
 
         JsonNode model = applicable.get(0);
+        if (!model.path("compatibilityConstraints").isMissingNode()) {
+            throw new AdapterException("compatibility constraints are unsupported");
+        }
+        if (!model.path("consumerResolvedDependencies").isMissingNode()) {
+            throw new AdapterException("consumer-resolved dependencies are unsupported");
+        }
         rejectRequiredVocabularies(model);
         Map<String, JsonNode> symbols = uniqueById(requiredArray(model, "symbols"), "symbol");
         Map<String, JsonNode> declarations = uniqueByField(requiredArray(model, "declarations"), "symbol", "declaration");
         Map<String, JsonNode> summaries = uniqueByField(requiredArray(model, "procedureSummaries"), "callable", "summary");
-        Map<String, String> coverage = readCoverage(model);
+        Map<String, JsonNode> coverage = readCoverage(model);
         Map<String, MethodBinding> resolved = resolveBindings(symbols, bindings);
         if (resolved.size() != bindings.size() || !resolved.keySet().equals(summaries.keySet())) {
             throw new AdapterException("configured bindings, resolved callables, and summaries must match exactly");
@@ -108,6 +124,7 @@ public final class CsmiFlowDroidAdapter {
 
         ClassSummaries classSummaries = new ClassSummaries();
         Set<String> adaptedSymbols = new HashSet<>();
+        Set<String> usedProvenance = new HashSet<>();
         for (Map.Entry<String, JsonNode> entry : summaries.entrySet()) {
             String symbolId = entry.getKey();
             MethodBinding binding = resolved.get(symbolId);
@@ -115,9 +132,13 @@ public final class CsmiFlowDroidAdapter {
                 throw new AdapterException("no exact Soot binding for callable " + symbolId);
             }
             validateDeclaration(symbolId, declarations.get(symbolId), binding);
-            if (!"complete".equals(coverage.get(symbolId))) {
-                throw new AdapterException("procedure-summary coverage is not complete for " + symbolId);
+            collectProvenance(declarations.get(symbolId), defaultProvenance, provenance, usedProvenance);
+            if (!"complete".equals(text(coverage.get(symbolId), "status"))) {
+                throw new AdapterException("incomplete-evidence", "procedure-summary coverage is not complete for " + symbolId);
             }
+            JsonNode completeness = coverage.get(symbolId);
+            collectProvenance(completeness, defaultProvenance, provenance, usedProvenance);
+            collectProvenance(entry.getValue(), defaultProvenance, provenance, usedProvenance);
             MethodSummaries methodSummaries = classSummaries
                     .getOrCreateClassSummaries(binding.sootClass())
                     .getMethodSummaries();
@@ -129,6 +150,7 @@ public final class CsmiFlowDroidAdapter {
             } else {
                 for (JsonNode transfer : transfers) {
                     int parameter = validateSupportedTransfer(transfer, binding);
+                    collectProvenance(transfer, defaultProvenance, provenance, usedProvenance);
                     FlowSource source = new FlowSource(
                             SourceSinkType.Parameter, parameter, binding.parameterTypes().get(parameter), ConstraintType.FALSE);
                     FlowSink sink = new FlowSink(
@@ -143,11 +165,58 @@ public final class CsmiFlowDroidAdapter {
         if (!coverage.keySet().equals(summaries.keySet())) {
             throw new AdapterException("complete coverage and procedure-summary scopes must match exactly");
         }
+        for (String provenanceId : usedProvenance) {
+            validateProvenanceRecord(provenance.get(provenanceId), artifact);
+        }
         MemorySummaryProvider provider = new MemorySummaryProvider(classSummaries);
         return new AdaptedSummaries(
                 provider,
                 new ExactSummaryTaintWrapper(provider),
-                new Trace(semanticDocumentSha256, artifact, adaptedSymbols));
+                new Trace(
+                        semanticDocumentSha256,
+                        artifact,
+                        adaptedSymbols,
+                        usedProvenance.stream().sorted().map(provenance::get).toList()));
+    }
+
+    private void validateProvenanceRecord(JsonNode record, ArtifactIdentity artifact) throws AdapterException {
+        if (text(record, "id") == null || text(record.path("producer"), "identifier") == null
+                || text(record.path("producer"), "version") == null || text(record, "generationMethod") == null) {
+            throw new AdapterException("unresolved-provenance", "provenance record lacks producer identity");
+        }
+        JsonNode inputs = requiredArray(record, "inputs");
+        if (inputs.size() != 1) {
+            throw new AdapterException("unresolved-provenance", "provenance must identify exactly one target artifact");
+        }
+        JsonNode input = inputs.get(0);
+        JsonNode digest = input.path("digest");
+        if (!"target-artifact".equals(text(input, "role"))
+                || !artifact.purl().equals(text(input, "purl"))
+                || !"sha-256".equals(text(digest, "algorithm"))
+                || !artifact.digestCoverage().equals(text(digest, "coverage"))
+                || !artifact.sha256().equals(text(digest, "value"))) {
+            throw new AdapterException("unresolved-provenance", "provenance target artifact identity does not match");
+        }
+    }
+
+    private void collectProvenance(
+            JsonNode fact,
+            String defaultProvenance,
+            Map<String, JsonNode> known,
+            Set<String> used) throws AdapterException {
+        JsonNode references = fact.path("provenance");
+        if (references.isMissingNode()) {
+            if (defaultProvenance == null) throw new AdapterException("fact has no provenance");
+            used.add(defaultProvenance);
+            return;
+        }
+        if (!references.isArray() || references.isEmpty()) throw new AdapterException("fact provenance must be non-empty");
+        for (JsonNode reference : references) {
+            if (!reference.isTextual() || !known.containsKey(reference.textValue())) {
+                throw new AdapterException("fact provenance is unresolved");
+            }
+            used.add(reference.textValue());
+        }
     }
 
     /** Makes FlowDroid select its exact-method exclusion for a complete empty set. */
@@ -180,7 +249,7 @@ public final class CsmiFlowDroidAdapter {
                     digestMatched = true;
                 }
             }
-            if (!digestMatched) throw new AdapterException("artifact PURL matched but exact SHA-256 did not");
+            if (!digestMatched) throw new AdapterException("artifact-mismatch", "artifact PURL matched but exact SHA-256 did not");
             if (matched) throw new AdapterException("duplicate exact artifact selectors are ambiguous");
             matched = true;
         }
@@ -266,14 +335,14 @@ public final class CsmiFlowDroidAdapter {
         return parameter;
     }
 
-    private Map<String, String> readCoverage(JsonNode model) throws AdapterException {
-        Map<String, String> result = new HashMap<>();
+    private Map<String, JsonNode> readCoverage(JsonNode model) throws AdapterException {
+        Map<String, JsonNode> result = new HashMap<>();
         JsonNode statements = requiredArray(model, "completenessStatements");
         for (JsonNode statement : statements) {
             if (!"procedure-summaries".equals(text(statement, "family"))) continue;
             String callable = text(statement.path("scope"), "callable");
             if (callable == null) throw new AdapterException("procedure-summary completeness lacks callable scope");
-            if (result.put(callable, text(statement, "status")) != null) throw new AdapterException("duplicate completeness scope for " + callable);
+            if (result.put(callable, statement) != null) throw new AdapterException("duplicate completeness scope for " + callable);
         }
         return result;
     }

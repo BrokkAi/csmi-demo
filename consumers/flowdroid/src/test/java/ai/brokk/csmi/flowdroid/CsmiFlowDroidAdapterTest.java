@@ -87,7 +87,17 @@ final class CsmiFlowDroidAdapterTest {
 
     @Test
     void rejectsPartialCoverage() {
-        assertFailure(document("normalize", transfer(), "partial", ARTIFACT_HASH), List.of(BINDING), "not complete");
+        AdapterException error = assertFailure(
+                document("normalize", transfer(), "partial", ARTIFACT_HASH), List.of(BINDING), "not complete");
+        assertEquals("incomplete-evidence", error.code());
+    }
+
+    @Test
+    void rejectsProvenanceArtifactNearMiss() {
+        String json = document("normalize", transfer(), "complete", ARTIFACT_HASH)
+                .replaceFirst("external-normalize", "different-artifact");
+        AdapterException error = assertFailure(json, List.of(BINDING), "provenance target artifact");
+        assertEquals("unresolved-provenance", error.code());
     }
 
     @Test
@@ -122,9 +132,10 @@ final class CsmiFlowDroidAdapterTest {
                 new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8)), DOC_HASH, ARTIFACT, bindings);
     }
 
-    private static void assertFailure(String json, List<MethodBinding> bindings, String message) {
+    private static AdapterException assertFailure(String json, List<MethodBinding> bindings, String message) {
         AdapterException error = assertThrows(AdapterException.class, () -> adapt(json, bindings));
         assertTrue(error.getMessage().contains(message), error.getMessage());
+        return error;
     }
 
     private static String transfer() {
@@ -142,6 +153,11 @@ final class CsmiFlowDroidAdapterTest {
             "schema":"https://csmi.brokk.ai/schema/0.1/schema.json",
             "semanticModelVersion":"0.1",
             "serializationVersion":"0.1-json",
+            "defaultProvenance":"test",
+            "provenanceRecords":[{"id":"test","producer":{"identifier":"test","version":"1"},
+              "generationMethod":"manual","inputs":[{"role":"target-artifact",
+                "purl":"pkg:maven/ai.brokk.demo/external-normalize@1.0.0",
+                "digest":{"algorithm":"sha-256","coverage":"binary","value":"%s"}}]}],
             "semanticModels":[{
               "artifactSelectors":[{"purl":"pkg:maven/ai.brokk.demo/external-normalize@1.0.0",
                 "digests":[{"algorithm":"sha-256","coverage":"binary","value":"%s"}]}],
@@ -159,6 +175,6 @@ final class CsmiFlowDroidAdapterTest {
               "completenessStatements":[{"family":"procedure-summaries","scope":{"callable":"%s"},"status":"%s"}]
             }]
           }
-          """.formatted(digest, callable, callable, callable, transferArray, callable, status);
+          """.formatted(digest, digest, callable, callable, callable, transferArray, callable, status);
     }
 }

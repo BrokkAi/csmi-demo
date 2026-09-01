@@ -6,7 +6,7 @@
 
   <groupId>ai.brokk.csmi.demo</groupId>
   <artifactId>flowdroid-consumer</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0</version>
   <name>CSMI FlowDroid consumer</name>
 
   <properties>
