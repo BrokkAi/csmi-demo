@@ -1,0 +1,25 @@
+name: Minimal dataflow consumer
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.9.23'
+      - name: Test independent consumer semantics
+        working-directory: consumers/minimal-dataflow
+        run: python3 -m unittest discover -s tests -v
+      - name: Run shared fixture in both declared modes
+        run: ./consumers/minimal-dataflow/scripts/run-shared-scenario.sh
+      - name: Ensure retained results are reproducible
+        run: git diff --exit-code -- consumers/minimal-dataflow/results

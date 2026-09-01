@@ -1,0 +1,85 @@
+{
+  "formatVersion": "minimal-dataflow-input/1",
+  "nodes": [
+    "constant.argument",
+    "constant.result",
+    "constant.sink",
+    "constant.source",
+    "normalize.argument",
+    "normalize.result",
+    "normalize.sink",
+    "normalize.source"
+  ],
+  "edges": [
+    ["constant.source", "constant.argument"],
+    ["constant.result", "constant.sink"],
+    ["normalize.source", "normalize.argument"],
+    ["normalize.result", "normalize.sink"]
+  ],
+  "externalCalls": [
+    {
+      "id": "constant.call",
+      "target": {
+        "artifactSelectors": [
+          {
+            "purl": "pkg:maven/ai.brokk.csmi-demo/external-normalize@1.0.0",
+            "digests": [
+              {
+                "algorithm": "sha-256",
+                "coverage": "jar",
+                "value": "d343c7d2fc3703ac426340bd6c7ae5ed4c414436f197b7a2cc98fc4a9357d8e8"
+              }
+            ]
+          }
+        ],
+        "scheme": "ai.brokk.csmi.jvm-symbol",
+        "schemeVersion": "0.1",
+        "stability": "portable",
+        "descriptors": [
+          {"role": "namespace", "name": "ai"},
+          {"role": "namespace", "name": "brokk"},
+          {"role": "namespace", "name": "csmi"},
+          {"role": "namespace", "name": "demo"},
+          {"role": "type", "name": "ExternalNormalizer"},
+          {"role": "callable", "name": "constant", "disambiguator": "(java.lang.String)->java.lang.String"}
+        ]
+      },
+      "arguments": ["constant.argument"],
+      "results": ["constant.result"]
+    },
+    {
+      "id": "normalize.call",
+      "target": {
+        "artifactSelectors": [
+          {
+            "purl": "pkg:maven/ai.brokk.csmi-demo/external-normalize@1.0.0",
+            "digests": [
+              {
+                "algorithm": "sha-256",
+                "coverage": "jar",
+                "value": "d343c7d2fc3703ac426340bd6c7ae5ed4c414436f197b7a2cc98fc4a9357d8e8"
+              }
+            ]
+          }
+        ],
+        "scheme": "ai.brokk.csmi.jvm-symbol",
+        "schemeVersion": "0.1",
+        "stability": "portable",
+        "descriptors": [
+          {"role": "namespace", "name": "ai"},
+          {"role": "namespace", "name": "brokk"},
+          {"role": "namespace", "name": "csmi"},
+          {"role": "namespace", "name": "demo"},
+          {"role": "type", "name": "ExternalNormalizer"},
+          {"role": "callable", "name": "normalize", "disambiguator": "(java.lang.String)->java.lang.String"}
+        ]
+      },
+      "arguments": ["normalize.argument"],
+      "results": ["normalize.result"]
+    }
+  ],
+  "queries": [
+    {"id": "constant.input-to-return", "sourceNode": "constant.source", "sinkNode": "constant.sink"},
+    {"id": "normalize.input-to-return", "sourceNode": "normalize.source", "sinkNode": "normalize.sink"}
+  ]
+}
