@@ -32,7 +32,7 @@ pinned_pack_root="$work_dir/pinned-packs"
 mkdir -p "$classes_dir"
 
 codeql pack download --force --dir="$pinned_pack_root" -- \
-  "codeql/java-all@$CODEQL_JAVA_ALL_VERSION"
+  "codeql/java-all@=$CODEQL_JAVA_ALL_VERSION"
 java_pack="$pinned_pack_root/codeql/java-all/$CODEQL_JAVA_ALL_VERSION/qlpack.yml"
 
 python3 "$consumer_dir/generate_model.py" \
