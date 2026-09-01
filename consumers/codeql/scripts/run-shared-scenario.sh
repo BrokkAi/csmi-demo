@@ -24,7 +24,8 @@ fi
 python3 -m unittest discover -s "$consumer_dir" -p 'test_*.py' -v
 codeql pack install "$query_dir"
 
-work_dir=$(mktemp -d /private/tmp/csmi-codeql-consumer.XXXXXX)
+temp_root=${RUNNER_TEMP:-${TMPDIR:-/tmp}}
+work_dir=$(mktemp -d "$temp_root/csmi-codeql-consumer.XXXXXX")
 database_dir="$work_dir/database"
 classes_dir="$work_dir/classes"
 model_dir="$work_dir/model"
