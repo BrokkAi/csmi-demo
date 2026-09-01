@@ -22,6 +22,7 @@ fi
 
 "$scenario_dir/scripts/verify.py"
 python3 -m unittest discover -s "$consumer_dir" -p 'test_*.py' -v
+codeql pack download -- "codeql/java-all@$CODEQL_JAVA_ALL_VERSION"
 codeql pack install "$query_dir"
 
 temp_root=${RUNNER_TEMP:-${TMPDIR:-/tmp}}
