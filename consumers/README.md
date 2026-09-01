@@ -11,7 +11,8 @@ details local and apply them to the shared analyzer-neutral scenario contract.
 
 ## Consumers
 
-- [`codeql/`](codeql/) — a fail-closed CSMI adapter and CodeQL query integration.
+- [`codeql/`](codeql/) — a fail-closed CSMI adapter with retained shared-scenario
+  pack-off and pack-on CodeQL results.
 - [`flowdroid/`](flowdroid/) — a pinned FlowDroid/Soot adapter with retained
   shared-scenario pack-off and pack-on interoperability results.
 - [`minimal-dataflow/`](minimal-dataflow/) — a small graph consumer with
@@ -27,12 +28,12 @@ is implied until a runnable CodeQL consumer is present.
 
 ## Evidence boundary
 
-The consumer documentation will eventually point at shared scenarios under
+The consumer documentation points at shared scenarios under
 [`../scenarios/`](../scenarios/). A consumer may interpret those scenarios, but
 the scenario remains the source of truth for expected flow labels. Any future
 results must identify the exact fixture and configuration, distinguish pack-off
 from pack-on, and preserve incomplete or unavailable evidence rather than
 turning it into a clean result.
 
-An unavailable shared pack remains a typed failure, not a clean or successful
-consumer result.
+An unavailable or unsupported shared pack remains a typed failure, not a clean
+or successful consumer result.

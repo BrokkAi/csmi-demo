@@ -67,13 +67,37 @@ class GenerateModelTest(unittest.TestCase):
             declarations.append({"symbol": name, "category": "callable", "callable": shape})
             summaries.append({"callable": name, "transfers": [transfer()] if name == "normalize" else []})
             completeness.append(
-                {"family": "procedure-summaries", "scope": {"callable": name}, "status": "complete"}
+                {
+                    "family": "procedure-summaries",
+                    "scope": {"callable": name},
+                    "status": "complete",
+                    "provenance": ["bifrost-export"],
+                }
             )
         return {
             "documentType": "semantic-document",
             "schema": generate_model.SCHEMA,
             "semanticModelVersion": "0.1",
             "serializationVersion": "0.1-json",
+            "provenanceRecords": [
+                {
+                    "id": "bifrost-export",
+                    "generationMethod": "source-analysis",
+                    "invocationId": f"bifrost:{generate_model.PRODUCER_COMMIT}",
+                    "producer": generate_model.EXPECTED_PRODUCER,
+                    "inputs": [
+                        {
+                            "digest": {
+                                "algorithm": "sha-256",
+                                "coverage": generate_model.EXPECTED_DIGEST_COVERAGE,
+                                "value": artifact_digest,
+                            },
+                            "purl": generate_model.EXPECTED_PURL,
+                            "role": "target-artifact",
+                        }
+                    ],
+                }
+            ],
             "semanticModels": [
                 {
                     "artifactSelectors": [
@@ -107,6 +131,10 @@ class GenerateModelTest(unittest.TestCase):
         )
         self.assertEqual(trace[0]["csmi"]["symbol"]["scheme"], generate_model.JVM_SCHEME)
         self.assertIn("row", trace[0]["codeql"])
+        self.assertEqual(
+            generate_model.exact_provenance(document, self.artifact)["producer"],
+            generate_model.EXPECTED_PRODUCER,
+        )
 
     def test_rejects_artifact_mismatch(self):
         document = self.document()
@@ -139,6 +167,7 @@ class GenerateModelTest(unittest.TestCase):
         model = pack / "model.json"
         model.write_bytes(model_bytes)
         manifest = {
+            "assembler": generate_model.EXPECTED_ASSEMBLER,
             "documentType": "pack-manifest",
             "schema": generate_model.SCHEMA,
             "packFormatVersion": "0.1",

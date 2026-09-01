@@ -46,7 +46,7 @@ jobs:
             -d "$build_dir" \
             scenarios/external-normalize/analyzer-input/src/main/java/ai/brokk/csmi/demo/ScenarioApplication.java
 
-  codeql-blocked-diagnostic:
+  codeql-consumer:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -63,14 +63,18 @@ jobs:
           echo "$BUNDLE_SHA256  $RUNNER_TEMP/codeql.tar.zst" | sha256sum --check --strict
           tar --use-compress-program=unzstd -xf "$RUNNER_TEMP/codeql.tar.zst" -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/codeql" >> "$GITHUB_PATH"
-      - name: Run the typed blocked diagnostic
+      - name: Reproduce the paired CodeQL evidence
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: ./consumers/codeql/run-blocked-diagnostic.sh "$RUNNER_TEMP/codeql-blocked.json"
-      - name: Retain the blocked diagnostic
+        run: ./consumers/codeql/scripts/run-shared-scenario.sh "$RUNNER_TEMP/codeql-results"
+      - name: Reject stale retained CodeQL evidence
+        run: |
+          diff -ru consumers/codeql/results "$RUNNER_TEMP/codeql-results"
+          python3 consumers/codeql/scripts/verify-results.py
+      - name: Retain the reproduced results
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: codeql-blocked-diagnostic
-          path: ${{ runner.temp }}/codeql-blocked.json
+          name: codeql-consumer-results
+          path: ${{ runner.temp }}/codeql-results
           if-no-files-found: error
           retention-days: 14

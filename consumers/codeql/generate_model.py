@@ -24,6 +24,15 @@ EXPECTED_PURL = "pkg:maven/ai.brokk.csmi-demo/external-normalize@1.0.0"
 EXPECTED_DIGEST_COVERAGE = "jar"
 EXPECTED_PACKAGE = "ai.brokk.csmi.demo"
 EXPECTED_OWNER = "ExternalNormalizer"
+PRODUCER_COMMIT = "f91ef53ee28893f23c3a5843d90abd3177bed9df"
+EXPECTED_ASSEMBLER = {
+    "identifier": "https://bifrost.brokk.ai/csmi-export",
+    "version": f"0.1.0+{PRODUCER_COMMIT}",
+}
+EXPECTED_PRODUCER = {
+    "identifier": "https://bifrost.brokk.ai/semantic-pack-producer",
+    "version": f"0.10.7+{PRODUCER_COMMIT}",
+}
 
 
 class Unsupported(ValueError):
@@ -65,6 +74,8 @@ def select_document(pack: Path, manifest: dict) -> tuple[Path, dict]:
         raise Unsupported("manifest documentType must be pack-manifest")
     if manifest.get("schema") != SCHEMA or manifest.get("packFormatVersion") != "0.1":
         raise Unsupported("unsupported CSMI pack schema or format version")
+    if manifest.get("assembler") != EXPECTED_ASSEMBLER:
+        raise Unsupported("unexpected Bifrost assembler identity")
     resources = manifest.get("resources")
     if not isinstance(resources, list) or not resources:
         raise Unsupported("manifest resources must be a non-empty array")
@@ -90,6 +101,31 @@ def select_document(pack: Path, manifest: dict) -> tuple[Path, dict]:
     if len(matches) != 1:
         raise Unsupported(f"expected exactly one semantic document, found {len(matches)}")
     return matches[0]
+
+
+def exact_provenance(document: dict, artifact: Path) -> dict:
+    records = document.get("provenanceRecords")
+    if not isinstance(records, list) or len(records) != 1:
+        raise Unsupported("expected exactly one semantic-document provenance record")
+    expected_input = {
+        "digest": {
+            "algorithm": "sha-256",
+            "coverage": EXPECTED_DIGEST_COVERAGE,
+            "value": sha256(artifact),
+        },
+        "purl": EXPECTED_PURL,
+        "role": "target-artifact",
+    }
+    record = records[0]
+    if (
+        record.get("id") != "bifrost-export"
+        or record.get("generationMethod") != "source-analysis"
+        or record.get("invocationId") != f"bifrost:{PRODUCER_COMMIT}"
+        or record.get("producer") != EXPECTED_PRODUCER
+        or record.get("inputs") != [expected_input]
+    ):
+        raise Unsupported("semantic-document provenance does not identify the exact Bifrost producer and JAR")
+    return record
 
 
 def exact_selector(model: dict, artifact: Path) -> str:
@@ -225,6 +261,8 @@ def build_rows(document: dict, artifact: Path) -> tuple[str, list, list, list]:
             raise Unsupported(f"{name} callable shape is not one required parameter and one result")
         if completeness.get(symbol_id, {}).get("status") != "complete":
             raise Unsupported(f"{name} lacks complete procedure-summary coverage")
+        if completeness[symbol_id].get("provenance") != ["bifrost-export"]:
+            raise Unsupported(f"{name} completeness does not cite exact Bifrost provenance")
         transfers = summary.get("transfers")
         if not isinstance(transfers, list):
             raise Unsupported(f"{name} transfers must be an array")
@@ -259,7 +297,16 @@ def build_rows(document: dict, artifact: Path) -> tuple[str, list, list, list]:
     return purl, summary_rows, neutral_rows, trace
 
 
-def write_output(output: Path, purl: str, summaries: list, neutrals: list, trace: list, artifact: Path, document: Path) -> None:
+def write_output(
+    output: Path,
+    purl: str,
+    summaries: list,
+    neutrals: list,
+    trace: list,
+    artifact: Path,
+    document: Path,
+    provenance: dict,
+) -> None:
     if output.exists():
         raise Unsupported(f"refusing to overwrite existing output path: {output}")
     output.mkdir(parents=True)
@@ -274,7 +321,16 @@ def write_output(output: Path, purl: str, summaries: list, neutrals: list, trace
         extensions.append({"addsTo": {"pack": "codeql/java-all", "extensible": "neutralModel"}, "data": neutrals})
     (output / "csmi.model.yml").write_text(json.dumps({"extensions": extensions}, indent=2) + "\n", encoding="utf-8")
     (output / "trace.json").write_text(
-        json.dumps({"artifact": {"purl": purl, "sha256": sha256(artifact)}, "semanticDocumentSha256": sha256(document), "rows": trace}, indent=2) + "\n",
+        json.dumps(
+            {
+                "artifact": {"purl": purl, "sha256": sha256(artifact)},
+                "provenance": provenance,
+                "semanticDocumentSha256": sha256(document),
+                "rows": trace,
+            },
+            indent=2,
+        )
+        + "\n",
         encoding="utf-8",
     )
 
@@ -288,11 +344,21 @@ def main() -> int:
     try:
         if not args.artifact.is_file():
             raise Unsupported(f"artifact is not a file: {args.artifact}")
-        manifest_path = args.pack / "manifest.csmi.json"
+        manifest_path = args.pack / "manifest.json"
         manifest = load_json(manifest_path)
         document_path, document = select_document(args.pack, manifest)
+        provenance = exact_provenance(document, args.artifact)
         purl, summaries, neutrals, trace = build_rows(document, args.artifact)
-        write_output(args.output, purl, summaries, neutrals, trace, args.artifact, document_path)
+        write_output(
+            args.output,
+            purl,
+            summaries,
+            neutrals,
+            trace,
+            args.artifact,
+            document_path,
+            provenance,
+        )
     except (Unsupported, OSError) as error:
         print(f"CodeQL CSMI generation failed closed: {error}", file=sys.stderr)
         return 2
