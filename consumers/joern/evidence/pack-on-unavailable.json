@@ -1,0 +1,100 @@
+{
+  "analysis": {
+    "cpgSha256": "fefeb17e8d04ff1d8d36e548b23beae302aab23cea933e89dd1d614f498f0435",
+    "externalMethods": [
+      {
+        "fullName": "<operator>.alloc",
+        "hasReceiver": true,
+        "parameterCount": 0,
+        "signature": ""
+      },
+      {
+        "fullName": "<operator>.assignment",
+        "hasReceiver": false,
+        "parameterCount": 2,
+        "signature": ""
+      },
+      {
+        "fullName": "<operator>.equals",
+        "hasReceiver": false,
+        "parameterCount": 2,
+        "signature": ""
+      },
+      {
+        "fullName": "<operator>.logicalOr",
+        "hasReceiver": false,
+        "parameterCount": 2,
+        "signature": ""
+      },
+      {
+        "fullName": "ai.brokk.csmi.demo.ExternalNormalizer.constant:java.lang.String(java.lang.String)",
+        "hasReceiver": true,
+        "parameterCount": 1,
+        "signature": "java.lang.String(java.lang.String)"
+      },
+      {
+        "fullName": "ai.brokk.csmi.demo.ExternalNormalizer.normalize:java.lang.String(java.lang.String)",
+        "hasReceiver": true,
+        "parameterCount": 1,
+        "signature": "java.lang.String(java.lang.String)"
+      },
+      {
+        "fullName": "java.lang.IllegalArgumentException.<init>:void(java.lang.String)",
+        "hasReceiver": true,
+        "parameterCount": 1,
+        "signature": "void(java.lang.String)"
+      }
+    ],
+    "methodEvidenceSha256": "4abf18ffeb2984a801ab1576c73a4d458ac2a7a7259220cdc119f2c5df712d6a",
+    "packEnabled": true
+  },
+  "consumer": {
+    "configurationPath": "consumers/joern/versions.json",
+    "configurationSha256": "e1a328d89700b006f7d8dc0277b5511cad97593219710b584c2bb2b25844fd7e",
+    "name": "joern",
+    "version": "4.0.592"
+  },
+  "counts": null,
+  "csmiPack": {
+    "packDigest": null,
+    "status": "unavailable"
+  },
+  "flows": [
+    {
+      "callable": "ai.brokk.csmi.demo.ExternalNormalizer.constant(java.lang.String):java.lang.String",
+      "classification": "unresolved",
+      "expected": false,
+      "id": "constant.input-to-return",
+      "observed": null
+    },
+    {
+      "callable": "ai.brokk.csmi.demo.ExternalNormalizer.normalize(java.lang.String):java.lang.String",
+      "classification": "unresolved",
+      "expected": true,
+      "id": "normalize.input-to-return",
+      "observed": null
+    }
+  ],
+  "metrics": null,
+  "run": {
+    "diagnostic": {
+      "code": "summary.empty",
+      "path": "$.shards[1].payload.summaries[0]",
+      "record": "BLOCKER.md",
+      "upstreamIssue": "https://github.com/BrokkAi/bifrost-dev/issues/2841"
+    },
+    "status": "unavailable"
+  },
+  "scenario": {
+    "artifact": {
+      "digestCoverage": "jar",
+      "purl": "pkg:maven/ai.brokk.csmi-demo/external-normalize@1.0.0",
+      "sha256": "d343c7d2fc3703ac426340bd6c7ae5ed4c414436f197b7a2cc98fc4a9357d8e8"
+    },
+    "id": "external-normalize",
+    "labelsSha256": "c5a20e0a19d24d4b2d12ec81784110828ef842c739fddd1c2a0f451b931738f3",
+    "manifestSha256": "9b09ac88adb5acb4a960b7e7ea613a4a89758cb96f139395231cb926bb929d85",
+    "version": "1.0.0"
+  },
+  "schemaVersion": 1
+}

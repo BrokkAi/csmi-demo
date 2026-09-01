@@ -1,7 +1,9 @@
 {
   "joern": {
     "release": "4.0.592",
-    "macosArm64ArchiveSha256": "32a60430d3db255d391010c432bd5d72d4a76fc0aeb77d7015ba0029aab26205"
+    "macosArm64ArchiveSha256": "32a60430d3db255d391010c432bd5d72d4a76fc0aeb77d7015ba0029aab26205",
+    "cliJarSha256": "22dc242defb713f1f7257ee5efc3be7b7abd3216d9d8f500906bbe04716b47c4",
+    "javaFrontendJarSha256": "60bc0f0eb9c0fcb3c02e4eed890766c2720b146ed00942bbcfa87fb5779bc234"
   },
   "javaFrontend": {
     "distribution": "bundled-with-joern-4.0.592",

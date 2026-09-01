@@ -45,6 +45,10 @@ jobs:
             -classpath scenarios/external-normalize/analyzer-input/lib/external-normalize-1.0.0.jar \
             -d "$build_dir" \
             scenarios/external-normalize/analyzer-input/src/main/java/ai/brokk/csmi/demo/ScenarioApplication.java
+      - name: Validate the Joern adapter and result contract
+        run: |
+          python3 -m pip install --requirement consumers/joern/requirements-validation.txt
+          python3 -m unittest discover -s consumers/joern -p 'test_*.py' -v
 
   codeql-consumer:
     runs-on: ubuntu-latest

@@ -26,6 +26,7 @@ JOERN_IDENTITY_VERSION = "4.0.592"
 # so production support remains empty rather than blessing an example scheme.
 SUPPORTED_SYMBOL_SCHEMES: frozenset[tuple[str, str]] = frozenset()
 HEX_256 = re.compile(r"^[0-9a-f]{64}$")
+CSMI_SCHEMA_SHA256 = "99d280864662e947421e0a840d7dbbd81bdf635fedaefaa7e44fa63bd49221b8"
 
 
 class AdapterError(Exception):
@@ -104,6 +105,24 @@ def safe_resource(pack_dir: Path, logical_path: str) -> Path:
     return resolved
 
 
+def validate_schema(instance: Any, where: str) -> None:
+    try:
+        from jsonschema import Draft202012Validator, FormatChecker
+        from jsonschema.exceptions import best_match
+    except ImportError:
+        fail("unsupported", "schema-validator-unavailable", "install consumers/joern/requirements-validation.txt")
+    schema_path = Path(__file__).with_name("schema") / "csmi-0.1.json"
+    schema_bytes = schema_path.read_bytes()
+    if sha256(schema_bytes) != CSMI_SCHEMA_SHA256:
+        fail("integrity-failure", "schema-digest-mismatch", "pinned CSMI 0.1 schema digest mismatch")
+    schema = json.loads(schema_bytes)
+    errors = list(Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(instance))
+    if errors:
+        error = best_match(errors)
+        path = "$" + "".join(f"[{part}]" if isinstance(part, int) else f".{part}" for part in error.absolute_path)
+        fail("invalid", "schema-invalid", f"{where} {path}: {error.message}")
+
+
 @dataclass(frozen=True)
 class LoadedPack:
     digest: str
@@ -114,6 +133,7 @@ class LoadedPack:
 def load_pack(pack_dir: Path, expected_digest: str | None) -> LoadedPack:
     manifest_path = pack_dir / "manifest.json"
     manifest = object_(read_json(manifest_path, "pack manifest"), "pack manifest")
+    validate_schema(manifest, "pack manifest")
     if manifest.get("documentType") != "pack-manifest" or manifest.get("packFormatVersion") != "0.1":
         fail("unsupported", "unsupported-pack-format", "expected a CSMI 0.1 pack manifest")
     if manifest.get("schema") != CSMI_SCHEMA:
@@ -151,6 +171,7 @@ def load_pack(pack_dir: Path, expected_digest: str | None) -> LoadedPack:
             if descriptor.get("mediaType") != SEMANTIC_MEDIA_TYPE:
                 fail("unsupported", "unsupported-media-type", f"unsupported semantic media type for {logical_path}")
             document = object_(read_json(resource_path, logical_path), logical_path)
+            validate_schema(document, logical_path)
             if resource_bytes != canonical_json(document):
                 fail("integrity-failure", "noncanonical-resource", f"{logical_path} is not canonical JSON")
             semantic.append((logical_path, declared_digest, document))
@@ -161,22 +182,64 @@ def load_pack(pack_dir: Path, expected_digest: str | None) -> LoadedPack:
     return LoadedPack(pack_digest, document_digest, document)
 
 
-def comparable_digest(selector: dict[str, Any], candidate: dict[str, Any]) -> str:
-    candidate_digests = {
-        (entry.get("algorithm"), entry.get("coverage")): entry.get("value")
-        for entry in array(candidate.get("digests"), "artifact.digests")
-        if isinstance(entry, dict)
+def load_scenario_pack(scenario_path: Path) -> tuple[LoadedPack, dict[str, Any]]:
+    manifest = object_(read_json(scenario_path, "scenario manifest"), "scenario manifest")
+    pack = object_(manifest.get("csmiPack"), "scenario.csmiPack")
+    manifest_path = pack.get("manifestPath")
+    expected_digest = pack.get("packDigest")
+    if not isinstance(manifest_path, str) or not manifest_path or not isinstance(expected_digest, str):
+        fail("unavailable", "pack-unavailable", "scenario has no generated CSMI pack identity")
+    resolved_manifest = safe_resource(scenario_path.parent, manifest_path)
+    if resolved_manifest.name != "manifest.json":
+        fail("unsupported", "unsupported-manifest-name", "CSMI pack manifest must be named manifest.json")
+    binary = object_(manifest.get("binaryArtifact"), "scenario.binaryArtifact")
+    artifact = {
+        "purl": string(binary.get("purl"), "scenario.binaryArtifact.purl"),
+        "digests": [{
+            "algorithm": "sha-256",
+            "coverage": string(binary.get("digestCoverage"), "scenario.binaryArtifact.digestCoverage"),
+            "value": string(binary.get("sha256"), "scenario.binaryArtifact.sha256"),
+        }],
     }
-    saw_comparable = False
+    return load_pack(resolved_manifest.parent, expected_digest), artifact
+
+
+def selector_outcome(selector: dict[str, Any], candidate: dict[str, Any]) -> str:
+    # This consumer supports only exact, unqualified PURLs. It deliberately
+    # leaves ranges and qualifiers uninterpretable instead of implementing a
+    # partial Package URL or VERS comparison procedure.
+    selector_purl = string(selector.get("purl"), "artifact selector purl")
+    candidate_purl = string(candidate.get("purl"), "artifact purl")
+    exact_purl = re.compile(r"^pkg:[a-z0-9.+-]+/[^@?#]+@[^@?#]+$")
+    if selector.get("versionRange") is not None or not exact_purl.fullmatch(selector_purl):
+        return "indeterminate"
+    if selector_purl != candidate_purl:
+        return "not-matched"
+
+    candidate_digests: dict[tuple[Any, Any, Any], Any] = {}
+    for raw_candidate in array(candidate.get("digests"), "artifact.digests"):
+        digest = object_(raw_candidate, "artifact digest")
+        key = (digest.get("algorithm"), digest.get("coverage"), digest.get("canonicalization"))
+        if key in candidate_digests and candidate_digests[key] != digest.get("value"):
+            fail("invalid", "conflicting-artifact-digests", "candidate has conflicting digests for one coverage")
+        candidate_digests[key] = digest.get("value")
+
+    required_coverages: dict[tuple[Any, Any], list[dict[str, Any]]] = {}
     for raw_digest in array(selector.get("digests", []), "artifact selector digests"):
         digest = object_(raw_digest, "artifact selector digest")
-        key = (digest.get("algorithm"), digest.get("coverage"))
-        if key in candidate_digests:
-            saw_comparable = True
+        coverage_key = (digest.get("coverage"), digest.get("canonicalization"))
+        required_coverages.setdefault(coverage_key, []).append(digest)
+    for (coverage, canonicalization), required in required_coverages.items():
+        comparable = [
+            digest for digest in required
+            if (digest.get("algorithm"), coverage, canonicalization) in candidate_digests
+        ]
+        if not comparable:
+            return "indeterminate"
+        for digest in comparable:
+            key = (digest.get("algorithm"), coverage, canonicalization)
             if candidate_digests[key] != digest.get("value"):
                 return "not-matched"
-    if selector.get("digests") and not saw_comparable:
-        return "indeterminate"
     return "matched"
 
 
@@ -184,10 +247,7 @@ def applicability(model: dict[str, Any], candidate: dict[str, Any]) -> None:
     outcomes: list[str] = []
     for raw_selector in array(model.get("artifactSelectors"), "semanticModel.artifactSelectors"):
         selector = object_(raw_selector, "artifact selector")
-        if selector.get("purl") != candidate.get("purl"):
-            outcomes.append("not-matched")
-            continue
-        outcomes.append(comparable_digest(selector, candidate))
+        outcomes.append(selector_outcome(selector, candidate))
     if "matched" in outcomes:
         return
     if "indeterminate" in outcomes:
@@ -220,6 +280,25 @@ def declarations_by_symbol(model: dict[str, Any]) -> dict[str, dict[str, Any]]:
             fail("invalid", "duplicate-declaration", f"duplicate declaration for {symbol}")
         result[symbol] = declaration
     return result
+
+
+def provenance_resolver(document: dict[str, Any]):
+    records = array(document.get("provenanceRecords"), "provenanceRecords")
+    ids = [string(object_(record, "provenance record").get("id"), "provenance record id") for record in records]
+    if len(ids) != len(set(ids)):
+        fail("invalid", "duplicate-provenance", "provenance record ids must be unique")
+    default = string(document.get("defaultProvenance"), "defaultProvenance")
+    if default not in ids:
+        fail("invalid", "missing-default-provenance", "default provenance does not resolve")
+
+    def resolve(record: dict[str, Any]) -> list[str]:
+        references = record.get("provenance", [default])
+        values = [string(value, "provenance reference") for value in array(references, "provenance references")]
+        if any(value not in ids for value in values):
+            fail("invalid", "unresolved-provenance", "semantic fact has an unresolved provenance reference")
+        return values
+
+    return default, records, resolve
 
 
 def joern_identity(model: dict[str, Any], symbol: dict[str, Any], candidate: dict[str, Any]) -> str:
@@ -266,7 +345,7 @@ def callable_shape(declaration: dict[str, Any]) -> dict[str, Any]:
 
 
 def slot(location: dict[str, Any], shape: dict[str, Any], phase: str) -> int:
-    if location.get("projections") not in (None, []):
+    if location.get("projection") is not None:
         fail("unsupported", "unsupported-projection", "Joern consumer supports only unprojected boundary locations")
     root = object_(location.get("root"), "boundary root")
     if root.get("phase") != phase:
@@ -280,6 +359,8 @@ def slot(location: dict[str, Any], shape: dict[str, Any], phase: str) -> int:
         position = root.get("position")
         if not isinstance(position, int) or isinstance(position, bool) or not 0 <= position < len(shape["parameters"]):
             fail("invalid", "invalid-parameter-root", "parameter root does not exist in callable shape")
+        if phase == "output":
+            fail("unsupported", "unsupported-parameter-writeback", "unprojected output parameters require a writeback vocabulary")
         return position + 1
     if phase == "output" and role == "result":
         position = root.get("position")
@@ -289,8 +370,8 @@ def slot(location: dict[str, Any], shape: dict[str, Any], phase: str) -> int:
     fail("unsupported", "unsupported-boundary-root", f"unsupported {phase} boundary role: {role!r}")
 
 
-def complete_summary_symbols(model: dict[str, Any]) -> set[str]:
-    complete: set[str] = set()
+def complete_summary_symbols(model: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    complete: dict[str, dict[str, Any]] = {}
     seen: set[str] = set()
     for raw_statement in array(model.get("completenessStatements", []), "semanticModel.completenessStatements"):
         statement = object_(raw_statement, "completeness statement")
@@ -305,7 +386,7 @@ def complete_summary_symbols(model: dict[str, Any]) -> set[str]:
         if status == "complete":
             if statement.get("limitations"):
                 fail("invalid", "complete-with-limitations", "complete coverage cannot have limitations")
-            complete.add(callable_id)
+            complete[callable_id] = statement
         elif status in ("partial", "unknown"):
             fail("incomplete", f"{status}-procedure-summary", f"procedure summary coverage for {callable_id} is {status}")
         else:
@@ -315,8 +396,12 @@ def complete_summary_symbols(model: dict[str, Any]) -> set[str]:
 
 def method_shape_matches(shape: dict[str, Any], method: dict[str, Any]) -> None:
     expected_receiver = isinstance(shape.get("receiver"), dict)
-    if method.get("hasReceiver") is not expected_receiver:
-        fail("incomplete", "receiver-shape-mismatch", "Joern receiver shape does not match CSMI")
+    # Joern reserves argument slot 0 for a Java static call's type qualifier as
+    # well as for an instance receiver. CSMI's receiver is semantic, so an
+    # absent CSMI receiver must not be contradicted by that syntactic Joern
+    # slot. A declared CSMI receiver does require the slot to exist.
+    if expected_receiver and method.get("hasReceiver") is not True:
+        fail("incomplete", "receiver-shape-mismatch", "Joern lacks the receiver slot required by CSMI")
     parameter_count = method.get("parameterCount")
     if parameter_count != len(shape["parameters"]):
         fail("incomplete", "parameter-shape-mismatch", "Joern parameter count does not match CSMI")
@@ -335,6 +420,7 @@ def project(loaded: LoadedPack, artifact: dict[str, Any], methods: list[Any]) ->
     if len(models) != 1:
         fail("unsupported", "unsupported-model-count", "this consumer requires exactly one semantic model")
     model = object_(models[0], "semantic model")
+    default_provenance, provenance_records, resolve_provenance = provenance_resolver(document)
     if model.get("vocabularyUses"):
         fail("unsupported", "unsupported-vocabulary", "this consumer supports no required or optional vocabulary projection")
     applicability(model, artifact)
@@ -367,9 +453,20 @@ def project(loaded: LoadedPack, artifact: dict[str, Any], methods: list[Any]) ->
             source = slot(object_(transfer.get("source"), "transfer.source"), shape, "input")
             destination = slot(object_(transfer.get("destination"), "transfer.destination"), shape, "output")
             mappings.add((source, destination))
-        output.append({"methodFullName": full_name, "regex": False, "mappings": [list(item) for item in sorted(mappings)]})
+        coverage = complete[callable_id]
+        output.append({
+            "methodFullName": full_name,
+            "regex": False,
+            "mappings": [list(item) for item in sorted(mappings)],
+            "summaryProvenance": resolve_provenance(summary),
+            "coverage": {
+                "family": "procedure-summaries",
+                "status": "complete",
+                "provenance": resolve_provenance(coverage),
+            },
+        })
 
-    missing = complete - seen
+    missing = set(complete) - seen
     if missing:
         fail("invalid", "complete-summary-missing", f"complete summary scopes lack summaries: {sorted(missing)}")
     if not output:
@@ -378,24 +475,26 @@ def project(loaded: LoadedPack, artifact: dict[str, Any], methods: list[Any]) ->
         "schemaVersion": 1,
         "outcome": "applied",
         "joern": {"version": JOERN_IDENTITY_VERSION, "identityScheme": JOERN_IDENTITY_SCHEME},
-        "csmi": {"packDigest": loaded.digest, "semanticDocumentDigest": loaded.document_digest},
+        "csmi": {
+            "packDigest": loaded.digest,
+            "semanticDocumentDigest": loaded.document_digest,
+            "defaultProvenance": default_provenance,
+            "provenanceRecords": provenance_records,
+        },
         "semantics": output,
     }
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pack", type=Path, required=True)
-    parser.add_argument("--artifact", type=Path, required=True)
+    parser.add_argument("--scenario", type=Path, required=True)
     parser.add_argument("--methods", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--expected-pack-digest")
     args = parser.parse_args(argv)
     result: dict[str, Any]
     exit_code = 0
     try:
-        loaded = load_pack(args.pack, args.expected_pack_digest)
-        artifact = object_(read_json(args.artifact, "artifact evidence"), "artifact evidence")
+        loaded, artifact = load_scenario_pack(args.scenario)
         methods = array(read_json(args.methods, "Joern method evidence"), "Joern method evidence")
         result = project(loaded, artifact, methods)
     except AdapterError as error:

@@ -3,7 +3,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 import ujson.*
 
-@main def exec(cpgFile: String, output: String): Unit =
+@main def main(cpgFile: String, output: String): Unit = {
   importCpg(cpgFile)
   val evidence = Arr.from(cpg.method.map { method =>
     Obj(
@@ -15,3 +15,4 @@ import ujson.*
     )
   }.l)
   Files.writeString(Paths.get(output), evidence.render() + "\n", StandardCharsets.UTF_8)
+}
