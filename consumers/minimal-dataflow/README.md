@@ -50,15 +50,11 @@ The shared deterministic fixture and labels landed in repository commit
 digests and analyzer boundary in place; it never copies the shared binary,
 labels, producer input, or future pack into this consumer.
 
-The retained [`pack-off.json`](results/pack-off.json) is a completed consumer
-run against those shared identities. [`pack-on.json`](results/pack-on.json) is
-deliberately a typed `pack-unavailable` failure, not interoperability evidence:
-the shared scenario currently records Bifrost issue
-[`#2841`](https://github.com/BrokkAi/bifrost-dev/issues/2841), diagnostic
-`summary.empty`, and no generated CSMI pack identity. Once issue #1 replaces
-that blocker with an available manifest and digest, the same script will invoke
-the pack-on analysis; its expected-exit check must then be updated together with
-a retained successful result.
+The retained [`pack-off.json`](results/pack-off.json) and
+[`pack-on.json`](results/pack-on.json) are completed runs against the identical
+shared scenario and analyzer graph. The pack-on run consumes the exact
+Bifrost-generated pack identified by manifest SHA-256
+`97873207ab6ffbc49bafbf4f2f0c08779081529ae1fedabaafb754f60f6fbb76`.
 
 The unit tests use temporary diagnostic documents to validate consumer
 semantics. Those documents are deliberately not committed as substitute CSMI
@@ -93,7 +89,8 @@ result[0]` for the positive callable, while complete coverage with an empty
 transfer set makes the negative near miss an established non-flow. The consumer
 does not infer either outcome from callable names or expected labels.
 
-The currently retained pack-off run has one false negative and one true
-negative. Precision is undefined because it reports no positive flows; recall
-is `0/1`. No pack-on precision, recall, or interoperability claim is made while
-the shared generated pack is unavailable.
+The retained pack-off run has one false negative and one true negative.
+Precision is undefined because it reports no positive flows; recall is `0/1`.
+With the pack enabled, the complete empty summary preserves the negative as a
+true negative and the parameter-to-result transfer changes the positive to a
+true positive. Pack-on precision and recall are therefore both `1/1`.

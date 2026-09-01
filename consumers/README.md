@@ -12,9 +12,8 @@ details local and apply them to the shared analyzer-neutral scenario contract.
 ## Consumers
 
 - [`minimal-dataflow/`](minimal-dataflow/) — a small graph consumer with
-  complete diagnostic semantics coverage and a retained shared-scenario
-  pack-off result. Its pack-on interoperability run remains blocked on the
-  shared Bifrost export capability.
+  complete diagnostic semantics coverage and retained shared-scenario pack-off
+  and pack-on interoperability results.
 
 Additional consumers may be added as separate directories once their scope and
 evidence contract are defined.

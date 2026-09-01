@@ -1,6 +1,6 @@
 {
   "analysis": {
-    "canonicalSha256": "8b4328015d707525bbb7de8f0e9685b6a8d6a9ad09fa112870a16305510dd381",
+    "canonicalSha256": "82e3fb7bfc3b40a779a1762a907961431df7d7fd8c1af0215aa6cae9bcb129fb",
     "formatVersion": "minimal-dataflow-input/1"
   },
   "artifact": {
@@ -65,7 +65,7 @@
     },
     "manifest": {
       "path": "scenario.json",
-      "sha256": "9b09ac88adb5acb4a960b7e7ea613a4a89758cb96f139395231cb926bb929d85"
+      "sha256": "be3dee82624a3f37caa01af5039d54d526d1d512a32173410a4fa33f964725f7"
     },
     "version": "1.0.0"
   },

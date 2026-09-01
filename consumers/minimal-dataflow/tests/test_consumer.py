@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from minimal_dataflow.consumer import ConsumerFailure, SCHEMA, load_pack, run
+from minimal_dataflow.consumer import ConsumerFailure, SCHEMA, load_json, load_pack, run
 from minimal_dataflow.scenario import load_scenario, require_pack_available
 
 PURL = "pkg:maven/ai.brokk.csmi/external-normalize@1.0.0"
@@ -194,7 +194,7 @@ class ConsumerTests(unittest.TestCase):
             load_pack(pack, digest)
         self.assertEqual(caught.exception.code, "integrity-failure")
 
-    def test_landed_shared_scenario_adapts_exact_identities(self):
+    def test_landed_shared_scenario_pack_matches_exact_identities(self):
         scenario_root = Path(__file__).resolve().parents[3] / "scenarios" / "external-normalize"
         artifact, labels, scenario, pack = load_scenario(scenario_root)
         self.assertEqual(artifact["purl"], "pkg:maven/ai.brokk.csmi-demo/external-normalize@1.0.0")
@@ -203,10 +203,20 @@ class ConsumerTests(unittest.TestCase):
             "normalize.input-to-return": True,
         })
         self.assertEqual(scenario["id"], "external-normalize")
-        with self.assertRaises(ConsumerFailure) as caught:
-            require_pack_available(pack)
-        self.assertEqual(caught.exception.code, "pack-unavailable")
-        self.assertEqual(caught.exception.details["blocker"]["code"], "summary.empty")
+        manifest_path, digest = require_pack_available(pack)
+        self.assertEqual(manifest_path, "pack/manifest.json")
+        self.assertEqual(digest, "97873207ab6ffbc49bafbf4f2f0c08779081529ae1fedabaafb754f60f6fbb76")
+        analysis_path = Path(__file__).resolve().parents[1] / "inputs" / "external-normalize.json"
+        loaded_pack = load_pack(scenario_root / Path(manifest_path).parent, digest)
+        result = run(
+            analysis=load_json(analysis_path),
+            artifact=artifact,
+            labels=labels,
+            scenario_identity=scenario,
+            pack=loaded_pack,
+        )
+        self.assertEqual([flow["classification"] for flow in result["flows"]], ["TN", "TP"])
+        self.assertEqual(result["counts"], {"truePositive": 1, "falsePositive": 0, "falseNegative": 0, "trueNegative": 1})
 
 
 if __name__ == "__main__":
