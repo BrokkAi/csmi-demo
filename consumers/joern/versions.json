@@ -1,0 +1,16 @@
+{
+  "joern": {
+    "release": "4.0.592",
+    "macosArm64ArchiveSha256": "32a60430d3db255d391010c432bd5d72d4a76fc0aeb77d7015ba0029aab26205"
+  },
+  "javaFrontend": {
+    "distribution": "bundled-with-joern-4.0.592",
+    "typeRecovery": true,
+    "typeFallback": false,
+    "delombokMode": "no-delombok"
+  },
+  "jdk": {
+    "distribution": "Eclipse Temurin",
+    "version": "21.0.8+9-LTS"
+  }
+}
