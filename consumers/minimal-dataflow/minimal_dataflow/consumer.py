@@ -313,6 +313,7 @@ def _metric(numerator: int, denominator: int) -> dict[str, Any]:
 
 def run(*, analysis: dict[str, Any], artifact: dict[str, Any], labels: dict[str, Any], scenario_identity: dict[str, Any], pack: LoadedPack | None) -> dict[str, Any]:
     nodes, edges, calls, queries = _validate_analysis(analysis)
+    analysis_digest = hashlib.sha256(_canonical_json(analysis)).hexdigest()
     _require(isinstance(artifact, dict) and set(artifact) == {"purl", "digests"}, "malformed-input", "artifact identity must contain exact PURL and digests")
     _parse_purl(artifact["purl"])
     _digest_map(artifact["digests"], context="candidate artifact")
@@ -362,6 +363,7 @@ def run(*, analysis: dict[str, Any], artifact: dict[str, Any], labels: dict[str,
         "resultFormatVersion": "csmi-demo-consumer-result/1",
         "status": "complete",
         "consumer": {"name": CONSUMER_NAME, "version": CONSUMER_VERSION},
+        "analysis": {"formatVersion": analysis["formatVersion"], "canonicalSha256": analysis_digest},
         "scenario": scenario_identity,
         "artifact": artifact,
         "pack": {"state": "on" if pack else "off", **({"digest": {"algorithm": "sha-256", "value": pack.digest}} if pack else {})},

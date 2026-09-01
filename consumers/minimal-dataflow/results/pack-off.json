@@ -1,0 +1,73 @@
+{
+  "analysis": {
+    "canonicalSha256": "8b4328015d707525bbb7de8f0e9685b6a8d6a9ad09fa112870a16305510dd381",
+    "formatVersion": "minimal-dataflow-input/1"
+  },
+  "artifact": {
+    "digests": [
+      {
+        "algorithm": "sha-256",
+        "coverage": "jar",
+        "value": "d343c7d2fc3703ac426340bd6c7ae5ed4c414436f197b7a2cc98fc4a9357d8e8"
+      }
+    ],
+    "purl": "pkg:maven/ai.brokk.csmi-demo/external-normalize@1.0.0"
+  },
+  "consumer": {
+    "name": "brokkai.csmi.minimal-dataflow",
+    "version": "0.1.0"
+  },
+  "counts": {
+    "falseNegative": 1,
+    "falsePositive": 0,
+    "trueNegative": 1,
+    "truePositive": 0
+  },
+  "flows": [
+    {
+      "classification": "TN",
+      "expectedFlow": false,
+      "id": "constant.input-to-return",
+      "observedFlow": false
+    },
+    {
+      "classification": "FN",
+      "expectedFlow": true,
+      "id": "normalize.input-to-return",
+      "observedFlow": false
+    }
+  ],
+  "metrics": {
+    "precision": {
+      "defined": false,
+      "denominator": 0,
+      "numerator": 0
+    },
+    "recall": {
+      "defined": true,
+      "denominator": 1,
+      "numerator": 0,
+      "value": 0.0
+    }
+  },
+  "pack": {
+    "state": "off"
+  },
+  "provenance": {
+    "records": []
+  },
+  "resultFormatVersion": "csmi-demo-consumer-result/1",
+  "scenario": {
+    "id": "external-normalize",
+    "labels": {
+      "path": "labels.json",
+      "sha256": "c5a20e0a19d24d4b2d12ec81784110828ef842c739fddd1c2a0f451b931738f3"
+    },
+    "manifest": {
+      "path": "scenario.json",
+      "sha256": "9b09ac88adb5acb4a960b7e7ea613a4a89758cb96f139395231cb926bb929d85"
+    },
+    "version": "1.0.0"
+  },
+  "status": "complete"
+}

@@ -1,0 +1,45 @@
+{
+  "artifact": {
+    "digests": [
+      {
+        "algorithm": "sha-256",
+        "coverage": "jar",
+        "value": "d343c7d2fc3703ac426340bd6c7ae5ed4c414436f197b7a2cc98fc4a9357d8e8"
+      }
+    ],
+    "purl": "pkg:maven/ai.brokk.csmi-demo/external-normalize@1.0.0"
+  },
+  "consumer": {
+    "name": "brokkai.csmi.minimal-dataflow",
+    "version": "0.1.0"
+  },
+  "failure": {
+    "code": "pack-unavailable",
+    "details": {
+      "blocker": {
+        "code": "summary.empty",
+        "path": "$.shards[1].payload.summaries[0]",
+        "record": "BLOCKER.md",
+        "upstreamIssue": "https://github.com/BrokkAi/bifrost-dev/issues/2841"
+      }
+    },
+    "message": "the shared scenario has no verified Bifrost-generated CSMI pack"
+  },
+  "pack": {
+    "state": "on"
+  },
+  "resultFormatVersion": "csmi-demo-consumer-result/1",
+  "scenario": {
+    "id": "external-normalize",
+    "labels": {
+      "path": "labels.json",
+      "sha256": "c5a20e0a19d24d4b2d12ec81784110828ef842c739fddd1c2a0f451b931738f3"
+    },
+    "manifest": {
+      "path": "scenario.json",
+      "sha256": "9b09ac88adb5acb4a960b7e7ea613a4a89758cb96f139395231cb926bb929d85"
+    },
+    "version": "1.0.0"
+  },
+  "status": "failed"
+}

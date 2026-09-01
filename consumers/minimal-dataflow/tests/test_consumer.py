@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 
 from minimal_dataflow.consumer import ConsumerFailure, SCHEMA, load_pack, run
+from minimal_dataflow.scenario import load_scenario, require_pack_available
 
 PURL = "pkg:maven/ai.brokk.csmi/external-normalize@1.0.0"
 DIGEST = "a" * 64
@@ -189,6 +190,20 @@ class ConsumerTests(unittest.TestCase):
         with self.assertRaises(ConsumerFailure) as caught:
             load_pack(pack, digest)
         self.assertEqual(caught.exception.code, "integrity-failure")
+
+    def test_landed_shared_scenario_adapts_exact_identities(self):
+        scenario_root = Path(__file__).resolve().parents[3] / "scenarios" / "external-normalize"
+        artifact, labels, scenario, pack = load_scenario(scenario_root)
+        self.assertEqual(artifact["purl"], "pkg:maven/ai.brokk.csmi-demo/external-normalize@1.0.0")
+        self.assertEqual({flow["id"]: flow["expectedFlow"] for flow in labels["flows"]}, {
+            "constant.input-to-return": False,
+            "normalize.input-to-return": True,
+        })
+        self.assertEqual(scenario["id"], "external-normalize")
+        with self.assertRaises(ConsumerFailure) as caught:
+            require_pack_available(pack)
+        self.assertEqual(caught.exception.code, "pack-unavailable")
+        self.assertEqual(caught.exception.details["blocker"]["code"], "summary.empty")
 
 
 if __name__ == "__main__":
