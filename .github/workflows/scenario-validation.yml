@@ -21,6 +21,23 @@ jobs:
         run: |
           ./scenarios/external-normalize/scripts/build-fixture.sh
           ./scenarios/external-normalize/scripts/verify.py
+      - name: Reject stale binary and pack identities
+        run: |
+          stale_binary=$(mktemp -d)
+          cp -R scenarios/external-normalize/. "$stale_binary/"
+          truncate -s -1 "$stale_binary/analyzer-input/lib/external-normalize-1.0.0.jar"
+          if ./scenarios/external-normalize/scripts/verify.py "$stale_binary"; then
+            echo "verifier accepted a stale binary identity" >&2
+            exit 1
+          fi
+
+          stale_pack=$(mktemp -d)
+          cp -R scenarios/external-normalize/. "$stale_pack/"
+          truncate -s -1 "$stale_pack/pack/semantic-document.json"
+          if ./scenarios/external-normalize/scripts/verify.py "$stale_pack"; then
+            echo "verifier accepted a stale pack identity" >&2
+            exit 1
+          fi
       - name: Compile analyzer input against only the opaque JAR
         run: |
           build_dir=$(mktemp -d)

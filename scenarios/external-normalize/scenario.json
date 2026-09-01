@@ -3,7 +3,7 @@
   "scenario": {
     "id": "external-normalize",
     "version": "1.0.0",
-    "status": "blocked",
+    "status": "materialized",
     "labels": {
       "path": "labels.json",
       "sha256": "c5a20e0a19d24d4b2d12ec81784110828ef842c739fddd1c2a0f451b931738f3"
@@ -55,11 +55,11 @@
   "producerInput": {
     "format": "Bifrost AuthoredSemanticModelPack schema_version 1",
     "path": "producer/bifrost-model.json",
-    "sha256": "6526c28a8c15d74185e3c14a195e561ef69104b1bf781835fd54a4b15e2c6955"
+    "sha256": "08dd51cc0e7a4c68c56b8064dcb97354b714834adb951ae3ccd6acc801804046"
   },
   "csmiProducer": {
     "repository": "https://github.com/BrokkAi/bifrost-dev",
-    "commit": "d883a143f31aba973401ad079e313bf080aafe17",
+    "commit": "f91ef53ee28893f23c3a5843d90abd3177bed9df",
     "crate": "brokk-bifrost-analysis",
     "crateVersion": "0.10.7",
     "api": "export_authored_csmi_pack",
@@ -67,15 +67,20 @@
     "cargoVersion": "1.97.1 (c980f4866 2026-06-30)"
   },
   "csmiPack": {
-    "status": "unavailable",
-    "manifestPath": null,
-    "packDigest": null,
-    "resourceDigests": [],
-    "blocker": {
-      "code": "summary.empty",
-      "path": "$.shards[1].payload.summaries[0]",
-      "record": "BLOCKER.md",
-      "upstreamIssue": "https://github.com/BrokkAi/bifrost-dev/issues/2841"
-    }
+    "status": "available",
+    "manifestPath": "pack/manifest.json",
+    "packDigest": {
+      "algorithm": "sha-256",
+      "value": "97873207ab6ffbc49bafbf4f2f0c08779081529ae1fedabaafb754f60f6fbb76"
+    },
+    "resourceDigests": [
+      {
+        "path": "pack/semantic-document.json",
+        "mediaType": "application/vnd.csmi.semantic-model.v0.1+json",
+        "size": 4861,
+        "algorithm": "sha-256",
+        "value": "ffff74e5ddb9dfa6f66c3b5c6651d2259fffc43db5549f3ffff1eb2de68fb136"
+      }
+    ]
   }
 }

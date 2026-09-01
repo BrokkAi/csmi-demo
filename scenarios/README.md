@@ -29,7 +29,6 @@ FP)` only where `TP + FP > 0`; recall is `TP / (TP + FN)` only where `TP + FN >
 not one.
 
 [`external-normalize`](external-normalize/) materializes the first deterministic
-opaque fixture and shared labels. Its Bifrost-generated CSMI pack is not yet
-available because the producer cannot export a complete empty transfer set; the
-exact blocker is retained with the scenario. This is not published benchmark
-evidence and does not claim that a consumer result exists.
+opaque fixture, shared labels, and exact Bifrost-generated CSMI pack. This is
+not published benchmark evidence and does not claim that a consumer result
+exists.
