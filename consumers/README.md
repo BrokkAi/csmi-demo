@@ -22,6 +22,10 @@ details local and apply them to the shared analyzer-neutral scenario contract.
   shared JVM structural identities and complete procedure summaries into exact,
   non-regex `FlowSemantic` entries. Its retained pack-off result has one false
   positive; pack-on matches both labels with precision and recall of 1.0.
+- [`rust-profile/`](rust-profile/) — a dependency-free independent consumer for
+  the normative `csmi.rust` 0.1.0 profile. It validates Cargo-resolved source
+  identity, inherent generic functions, trait implementations, generated items,
+  and explicit native mappings, with fail-closed near-miss tests.
 
 Additional consumers may be added as separate directories once their scope and
 evidence contract are defined.

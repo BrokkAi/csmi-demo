@@ -9,6 +9,16 @@ permissions:
   contents: read
 
 jobs:
+  rust-profile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Verify independent Rust profile interpretation
+        run: |
+          python3 -m unittest discover -s consumers/rust-profile -p 'test_*.py' -v
+          python3 consumers/rust-profile/verify.py > "$RUNNER_TEMP/rust-profile-projection.json"
+          test -s "$RUNNER_TEMP/rust-profile-projection.json"
+
   external-normalize:
     runs-on: ubuntu-latest
     steps:
