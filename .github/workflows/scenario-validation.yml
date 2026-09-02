@@ -33,6 +33,37 @@ jobs:
           python3 consumers/rust-profile/verify.py > "$RUNNER_TEMP/rust-profile-projection.json"
           test -s "$RUNNER_TEMP/rust-profile-projection.json"
 
+  javascript-node-profile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Validate independent profile interpretation
+        run: |
+          python3 -m unittest discover -s consumers/javascript-profile -p 'test_*.py' -v
+          output="$RUNNER_TEMP/javascript-profile"
+          mkdir -p "$output"
+          python3 consumers/javascript-profile/consumer.py \
+            --pack scenarios/node-builtin-alias/pack.json \
+            --cases scenarios/node-builtin-alias/cases.json \
+            --mode off --output "$output/pack-off.json"
+          python3 consumers/javascript-profile/consumer.py \
+            --pack scenarios/node-builtin-alias/pack.json \
+            --cases scenarios/node-builtin-alias/cases.json \
+            --mode on --output "$output/pack-on.json"
+          diff -u consumers/javascript-profile/results/pack-off.json "$output/pack-off.json"
+          diff -u consumers/javascript-profile/results/pack-on.json "$output/pack-on.json"
+      - name: Verify exact official Node distribution bytes
+        run: |
+          archive="$RUNNER_TEMP/node-v22.11.0-linux-x64.tar.xz"
+          curl --fail --location --retry 3 \
+            https://nodejs.org/dist/v22.11.0/node-v22.11.0-linux-x64.tar.xz \
+            --output "$archive"
+          echo '83bf07dd343002a26211cf1fcd46a9d9534219aad42ee02847816940bf610a72  '"$archive" | sha256sum --check --strict
+          python3 consumers/javascript-profile/consumer.py \
+            --pack scenarios/node-builtin-alias/pack.json \
+            --cases scenarios/node-builtin-alias/cases.json \
+            --mode on --archive "$archive" >/dev/null
+
   external-normalize:
     runs-on: ubuntu-latest
     steps:
