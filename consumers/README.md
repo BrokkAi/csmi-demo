@@ -11,6 +11,10 @@ details local and apply them to the shared analyzer-neutral scenario contract.
 
 ## Consumers
 
+- [`java-jvm-profile/`](java-jvm-profile/) — a dependency-free independent
+  consumer for the normative Java/JVM 0.1 profile family. It keeps Java source
+  and JVM binary identities distinct, validates evidence-bearing mappings and
+  compatibility, and fails closed on name or descriptor resemblance.
 - [`codeql/`](codeql/) — a fail-closed CSMI adapter with retained shared-scenario
   pack-off and pack-on CodeQL results.
 - [`flowdroid/`](flowdroid/) — a pinned FlowDroid/Soot adapter with retained

@@ -9,6 +9,20 @@ permissions:
   contents: read
 
 jobs:
+  java-jvm-profile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Verify independent Java/JVM profile interpretation
+        run: |
+          python3 -m unittest discover -s consumers/java-jvm-profile -p 'test_*.py' -v
+          python3 consumers/java-jvm-profile/verify.py \
+            --java-release 17 \
+            --class-file-major 61 \
+            --target-platform jvm \
+            > "$RUNNER_TEMP/java-jvm-profile-projection.json"
+          test -s "$RUNNER_TEMP/java-jvm-profile-projection.json"
+
   rust-profile:
     runs-on: ubuntu-latest
     steps:
