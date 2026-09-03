@@ -6,7 +6,9 @@ depending on the producer's internal representation.
 
 > **Status:** the first deterministic fixture, labels, exact Bifrost-generated
 > CSMI pack, and independently reproduced minimal-dataflow, FlowDroid, CodeQL,
-> and Joern 4.0.592 consumer interoperability results are materialized.
+> and Joern 4.0.592 consumer interoperability results are materialized. Small
+> independent consumers additionally exercise the normative Rust and Java/JVM
+> interoperability profiles.
 
 This is not the CSMI standard and it is not a CSMI SDK. The normative
 specification and schema live in the
@@ -53,7 +55,11 @@ scenarios/
   adapter and retained paired results. The [`joern`](consumers/joern/) consumer
   runs the same CPG with custom CSMI-derived semantics toggled off and on; its
   retained evidence shows the complete-empty summary removes one false positive
-  while preserving the positive flow.
+  while preserving the positive flow. The
+  [`java-jvm-profile`](consumers/java-jvm-profile/) and
+  [`rust-profile`](consumers/rust-profile/) consumers independently interpret
+  the corresponding normative profile fixtures without Bifrost libraries or
+  producer-local identity fallbacks.
 - [`scenarios/`](scenarios/) contains analyzer-neutral application inputs,
   opaque dependency fixtures, labels, expected outcomes, and retained CSMI
   packs.
