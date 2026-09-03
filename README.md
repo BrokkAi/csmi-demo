@@ -7,8 +7,9 @@ depending on the producer's internal representation.
 > **Status:** the first deterministic fixture, labels, exact Bifrost-generated
 > CSMI pack, and independently reproduced minimal-dataflow, FlowDroid, CodeQL,
 > and Joern 4.0.592 consumer interoperability results are materialized. Small
-> independent consumers additionally exercise the normative Rust and Java/JVM
-> interoperability profiles.
+> independent consumers additionally exercise the normative Rust, Java/JVM,
+> and JavaScript/TypeScript interoperability profiles, including the exact Node
+> distribution identity boundary.
 
 This is not the CSMI standard and it is not a CSMI SDK. The normative
 specification and schema live in the
@@ -65,6 +66,9 @@ scenarios/
   packs.
 - [`external-normalize`](scenarios/external-normalize/) contains the first
   controlled Java fixture and exact Bifrost-generated CSMI pack.
+- [`node-builtin-alias`](scenarios/node-builtin-alias/) exercises exact Node
+  distribution identity, builtin specifier aliases, and a same-named npm near
+  miss through [`javascript-profile`](consumers/javascript-profile/).
 
 Scenarios are shared deliberately. Every consumer must use the same pinned
 library artifact, CSMI pack, and labels rather than maintaining a private copy.

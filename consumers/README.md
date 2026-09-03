@@ -1,5 +1,9 @@
 # Consumers
 
+[`javascript-profile`](javascript-profile/) is a dependency-free independent
+consumer of the CSMI JavaScript/TypeScript identity profile. It retains paired
+pack-off and pack-on results for the shared Node builtin alias scenario.
+
 This directory contains independent CSMI consumers. Consumer-specific analyzer
 inputs and results belong here; shared fixtures, labels, and semantic packs do
 not.

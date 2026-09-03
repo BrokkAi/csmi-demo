@@ -1,0 +1,83 @@
+{
+  "documentType": "semantic-document",
+  "schema": "https://csmi.brokk.ai/schema/0.1/schema.json",
+  "semanticModelVersion": "0.1",
+  "serializationVersion": "0.1-json",
+  "provenanceRecords": [
+    {
+      "id": "profile-demo",
+      "producer": {
+        "identifier": "https://github.com/BrokkAi/csmi-demo/tree/main/scenarios/node-builtin-alias",
+        "version": "0.1.0"
+      },
+      "generationMethod": "manual-authoring"
+    }
+  ],
+  "defaultProvenance": "profile-demo",
+  "semanticModels": [
+    {
+      "artifactSelectors": [
+        {
+          "purl": "pkg:generic/nodejs.org/node@22.11.0",
+          "digests": [
+            {
+              "algorithm": "sha-256",
+              "coverage": "official-distribution-archive",
+              "value": "83bf07dd343002a26211cf1fcd46a9d9534219aad42ee02847816940bf610a72"
+            }
+          ]
+        }
+      ],
+      "vocabularyUses": [
+        {
+          "identifier": "csmi.javascript-typescript",
+          "version": "0.1.0",
+          "schema": "https://csmi.brokk.ai/schema/profiles/javascript-typescript/0.1/schema.json",
+          "requirement": "required",
+          "affects": [
+            {
+              "kind": "attachment",
+              "attachmentPoint": "module-binding",
+              "target": { "symbol": "exec-sync" }
+            },
+            {
+              "kind": "core-slot",
+              "slot": "symbol-identity-scheme",
+              "target": { "symbol": "exec-sync" }
+            }
+          ]
+        }
+      ],
+      "symbols": [
+        {
+          "id": "exec-sync",
+          "scheme": "csmi.javascript-runtime",
+          "schemeVersion": "0.1.0",
+          "stability": "portable",
+          "descriptors": [
+            { "role": "namespace", "name": "node:child_process" },
+            { "role": "callable", "name": "execSync" }
+          ],
+          "extensions": [
+            {
+              "vocabulary": "csmi.javascript-typescript",
+              "version": "0.1.0",
+              "payload": {
+                "kind": "module-binding",
+                "canonicalModule": "node:child_process",
+                "exportName": "execSync",
+                "acceptedSpecifiers": [
+                  { "form": "commonjs-property", "value": "child_process" },
+                  { "form": "esm-named", "value": "node:child_process" }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "declarations": [
+        { "symbol": "exec-sync", "category": "callable" }
+      ]
+    }
+  ]
+}

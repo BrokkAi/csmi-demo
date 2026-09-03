@@ -1,0 +1,103 @@
+{
+  "candidateArtifact": {
+    "archive": "node-v22.11.0-linux-x64.tar.xz",
+    "purl": "pkg:generic/nodejs.org/node@22.11.0",
+    "sha256": "83bf07dd343002a26211cf1fcd46a9d9534219aad42ee02847816940bf610a72",
+    "url": "https://nodejs.org/dist/v22.11.0/node-v22.11.0-linux-x64.tar.xz"
+  },
+  "cases": [
+    {
+      "expected": true,
+      "id": "commonjs-bare-builtin",
+      "observed": true,
+      "resolvedSymbol": {
+        "artifactSelector": {
+          "digests": [
+            {
+              "algorithm": "sha-256",
+              "coverage": "official-distribution-archive",
+              "value": "83bf07dd343002a26211cf1fcd46a9d9534219aad42ee02847816940bf610a72"
+            }
+          ],
+          "purl": "pkg:generic/nodejs.org/node@22.11.0"
+        },
+        "descriptors": [
+          {
+            "name": "node:child_process",
+            "role": "namespace"
+          },
+          {
+            "name": "execSync",
+            "role": "callable"
+          }
+        ],
+        "scheme": "csmi.javascript-runtime",
+        "schemeVersion": "0.1.0",
+        "stability": "portable"
+      }
+    },
+    {
+      "expected": true,
+      "id": "esm-prefixed-builtin",
+      "observed": true,
+      "resolvedSymbol": {
+        "artifactSelector": {
+          "digests": [
+            {
+              "algorithm": "sha-256",
+              "coverage": "official-distribution-archive",
+              "value": "83bf07dd343002a26211cf1fcd46a9d9534219aad42ee02847816940bf610a72"
+            }
+          ],
+          "purl": "pkg:generic/nodejs.org/node@22.11.0"
+        },
+        "descriptors": [
+          {
+            "name": "node:child_process",
+            "role": "namespace"
+          },
+          {
+            "name": "execSync",
+            "role": "callable"
+          }
+        ],
+        "scheme": "csmi.javascript-runtime",
+        "schemeVersion": "0.1.0",
+        "stability": "portable"
+      }
+    },
+    {
+      "expected": false,
+      "id": "same-named-npm-package",
+      "observed": false,
+      "resolvedSymbol": null
+    }
+  ],
+  "consumer": {
+    "identifier": "brokkai.csmi.javascript-profile",
+    "version": "0.1.0"
+  },
+  "counts": {
+    "falseNegative": 0,
+    "falsePositive": 0,
+    "trueNegative": 1,
+    "truePositive": 2
+  },
+  "pack": {
+    "sha256": "f6ba8980c791cce48d74efc010a3fb0435065bad85d1d784198fba64a5eb6c43",
+    "state": "on"
+  },
+  "precision": {
+    "defined": true,
+    "denominator": 2,
+    "numerator": 2
+  },
+  "recall": {
+    "defined": true,
+    "denominator": 2,
+    "numerator": 2
+  },
+  "resultFormatVersion": "csmi-demo-consumer-result/1",
+  "scenario": "node-builtin-alias/0.1",
+  "status": "complete"
+}

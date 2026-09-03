@@ -32,3 +32,7 @@ not one.
 opaque fixture, shared labels, and exact Bifrost-generated CSMI pack. This is
 not published benchmark evidence and does not claim that a consumer result
 exists.
+
+[`node-builtin-alias`](node-builtin-alias/) is a profile-identity scenario. It
+pins an exact official Node distribution and tests builtin alias equality plus
+a same-spelled npm-package near miss; it does not claim procedure semantics.

@@ -1,0 +1,35 @@
+{
+  "scenario": "node-builtin-alias/0.1",
+  "candidateArtifact": {
+    "purl": "pkg:generic/nodejs.org/node@22.11.0",
+    "archive": "node-v22.11.0-linux-x64.tar.xz",
+    "sha256": "83bf07dd343002a26211cf1fcd46a9d9534219aad42ee02847816940bf610a72",
+    "url": "https://nodejs.org/dist/v22.11.0/node-v22.11.0-linux-x64.tar.xz"
+  },
+  "cases": [
+    {
+      "id": "commonjs-bare-builtin",
+      "artifactPurl": "pkg:generic/nodejs.org/node@22.11.0",
+      "form": "commonjs-property",
+      "specifier": "child_process",
+      "exportName": "execSync",
+      "expectedMatch": true
+    },
+    {
+      "id": "esm-prefixed-builtin",
+      "artifactPurl": "pkg:generic/nodejs.org/node@22.11.0",
+      "form": "esm-named",
+      "specifier": "node:child_process",
+      "exportName": "execSync",
+      "expectedMatch": true
+    },
+    {
+      "id": "same-named-npm-package",
+      "artifactPurl": "pkg:npm/child_process@1.0.2",
+      "form": "commonjs-property",
+      "specifier": "child_process",
+      "exportName": "execSync",
+      "expectedMatch": false
+    }
+  ]
+}
